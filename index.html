@@ -1,0 +1,2916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Favicon — stored locally in the same folder -->
+  <link rel="icon" type="image/png" href="small-world-favicon.png">
+  <title>It's a Small World</title>
+
+  <!-- D3.js — the whole graph runs on this: nodes, edges, physics, zoom, drag, transitions -->
+  <!-- Bostock, Mike. D3.js. Observable, 2011. https://d3js.org -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+  <!-- Manrope is a variable font — weights go from 200 to 800 continuously, no steps -->
+  <!-- That's what lets me use font weight as a typographic contrast tool on the labels -->
+  <!-- Primary: loaded from Google Fonts CDN. Fallback: local file in fonts/ folder -->
+  <!-- Toth, Miksa. Manrope. Google Fonts, 2018. https://fonts.google.com/specimen/Manrope -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+  <style>
+
+    /*////// FONTS //////*/
+
+    /* Lombard is the display font, used only for SMALL and WORLD on both screens */
+    /* It lives in the fonts/ folder right next to this file */
+    @font-face {
+      font-family: 'Lombard';
+      src: url('fonts/Lombard-regular.otf') format('opentype');
+    }
+
+    /* Manrope local fallback — if Google Fonts fails to load (no internet, CDN down etc.),
+       the browser falls back to this copy stored in the fonts/ folder.
+       The font-face name matches exactly so CSS font-family declarations need no changes. */
+    @font-face {
+      font-family: 'Manrope';
+      src: url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');
+      font-weight: 200 800;
+      font-style: normal;
+    }
+
+
+    /*////// BASE //////*/
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: 'Manrope', sans-serif;
+      overflow: hidden;
+    }
+
+
+    /*////// INTRO SCREEN //////*/
+
+    /* Covers the whole page on load — same pattern as Finite Grids, removed after Start */
+    #intro-container {
+      position: fixed;
+      width: 100vmax;
+      height: 100vmax;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      will-change: clip-path;
+      backface-visibility: hidden;
+    }
+
+    /* The intro sits on top. When Start is clicked, its clip-path collapses to a dot at centre,
+       revealing the graph underneath — which has always been there, fully rendered.
+       No graph-wrapper animation needed. No blank frame possible.
+       Source: Argyle, Adam. "transition.style — out:circle:center".
+       https://www.transition.style/#out:circle:center */
+    .animate-out {
+      animation: circle-out 3s cubic-bezier(0.25, 1, 0.30, 1) forwards;
+      pointer-events: none;
+    }
+    @keyframes circle-out {
+      from { clip-path: circle(125% at 50% 50%); }
+      to   { clip-path: circle(0%   at 50% 50%); }
+    }
+
+    /* Graph wrapper — always fully visible, no clip needed */
+    #graph-wrapper {
+      position: fixed;
+      inset: 0;
+    }
+
+
+    /*////// INTRO TITLE BLOCK //////*/
+
+    /* The whole title is wrapped so the three pieces stay together as one unit */
+    .intro-title-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      /* clamp keeps the whole block from getting too tall on big monitors */
+    }
+
+    /* 'It's a' — noticeably smaller than Small World but same Lombard family */
+    .intro-top {
+      font-family: 'Lombard', serif;
+      font-size: clamp(24px, 5vw, 80px);
+      line-height: 1;
+      color: #bbb;
+      text-align: center;
+      margin-bottom: -0.1em;
+    }
+
+    /* Small World — headline size, not full-window size */
+    .intro-display {
+      font-family: 'Lombard', serif;
+      font-size: clamp(72px, 16vw, 260px);
+      line-height: 0.88;
+      text-align: center;
+      color: #fff;
+    }
+
+    /* Start button — solid white fill on hover */
+    .start-btn {
+      background: transparent;
+      border: 1px solid #444;
+      border-radius: 100px;
+      color: #777;
+      padding: 14px 50px;
+      margin-top: 48px;
+      font-family: 'Manrope', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.25s, border-color 0.25s, color 0.25s;
+    }
+
+    .start-btn:hover { background: #fff; border-color: #fff; color: #111; }
+    .start-btn:active { transform: scale(0.95); background: #ddd; border-color: #ddd; color: #111; transition: transform 0.08s, background 0.08s; }
+
+
+    /*////// GRAPH //////*/
+
+    #svg { width: 100vw; height: 100vh; display: block; }
+
+
+    /*////// PANELS //////*/
+
+    /* Source: MDN. position fixed. https://developer.mozilla.org/en-US/docs/Web/CSS/position */
+    #bottom-right {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 10;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .panel {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      width: 200px;
+    }
+
+    /* Source: MDN. cursor. https://developer.mozilla.org/en-US/docs/Web/CSS/cursor */
+    .panel-title {
+      font-family: 'Manrope', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      padding: 13px 15px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .panel-title:hover { color: #ccc; }
+    .panel-chevron { font-size: 8px; opacity: 0.5; }
+
+    /* Source: MDN. display none. https://developer.mozilla.org/en-US/docs/Web/CSS/display */
+    .panel-body { padding: 0 15px 13px 15px; min-height: 220px; }
+    .panel.collapsed .panel-body { display: none; }
+
+
+    /* Show Relationships toggle button — sits at bottom of Key panel.
+       Source: MDN. CSS :hover. https://developer.mozilla.org/en-US/docs/Web/CSS/:hover */
+    .rel-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid #333;
+      border-radius: 20px;
+      color: #888;
+      font-family: 'Manrope', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 0;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .rel-btn:hover { background: #2a2a2a; color: #ccc; border-color: #555; }
+    .rel-btn.active { background: #fff; color: #111; border-color: #fff; }
+    .rel-btn.active:hover { background: #ddd; border-color: #ddd; }
+
+    /*////// KEY — two columns //////*/
+
+    /* CSS grid for two-column key layout */
+    /* Source: MDN. CSS Grid Layout. https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout */
+    #key-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px 12px;
+    }
+
+    .key-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9.5px;
+      font-weight: 500;
+      color: #fff;
+      white-space: nowrap; /* never wrap — Wizarding World was breaking to two lines */
+      overflow: hidden;
+    }
+
+    .key-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+
+    /*////// FORCES SLIDERS //////*/
+
+    /* Source: MDN. input type range. https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/range */
+
+    .row { margin-bottom: 9px; }
+    .row:last-child { margin-bottom: 0; }
+
+    .row label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 500; /* medium weight — readable */
+      color: #fff; /* same readable colour as key labels, no dimming */
+      margin-bottom: 4px;
+    }
+
+    .row label span {
+      font-weight: 700; /* bold value — contrast within the label itself */
+      color: #ddd;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 2px;
+      background: #333;
+      cursor: pointer;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 11px; height: 11px;
+      background: #aaa; border-radius: 50%;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 11px; height: 11px;
+      background: #aaa; border-radius: 50%; border: none;
+    }
+
+
+    /*////// HOVER TOOLTIP //////*/
+
+    /* Floats near the hovered node — Epstein Visualizer style */
+    /* Source: D3 Graph Gallery. Tooltip. https://d3-graph-gallery.com/graph/interactivity_tooltip.html */
+    #tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 100;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 11px 14px;
+      min-width: 170px;
+      max-width: 250px;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    #tooltip.visible { opacity: 1; }
+
+    /* Name — big and bold, coloured by group */
+    #tt-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1px;
+    }
+
+    /* Group label — medium weight, not all-caps screaming, not dimmed */
+    #tt-group {
+      font-size: 10px;
+      font-weight: 500;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    /* Connection list — readable weight, no dim colour */
+    #tt-links {
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 1.9;
+      color: #bbb; /* readable — not #444 which was nearly invisible */
+      border-top: 1px solid #2a2a2a;
+      padding-top: 9px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    /* Relationship type — bold so it reads first, then the name after the dash */
+    #tt-links .rel  { font-weight: 700; color: #fff; }
+    #tt-links .name { font-weight: 400; color: #bbb; }
+
+
+    /*////// ABOUT LINK — bottom left, visible but not competing with the graph //////*/
+
+    #bottom-left {
+      position: fixed;
+      bottom: 20px; left: 18px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+    }
+
+    #about-link, #join-link {
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #888;
+      text-decoration: none;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 20px;
+      padding: 6px 14px;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+
+    #about-link:hover, #join-link:hover { background: #fff; color: #111; border-color: #fff; }
+
+
+    /*////// NODE GROUPS — smooth hover fade //////*/
+    svg g.node-group {
+      transition: opacity 0.25s ease;
+    }
+
+    /*////// EDGE LABELS — hidden by default, toggled by Show Relationships //////*/
+    .elabel {
+      font-family: 'Manrope', sans-serif;
+      font-size: 4.5px;
+      font-weight: 400;
+      fill: #555;
+      pointer-events: none;
+      user-select: none;
+      display: none;
+    }
+    .elabel.visible { display: block; }
+
+    /*////// NODE LABELS //////*/
+
+    /* All labels uniform weight — no hierarchy except my name which is bold */
+    /* Source: Toth, Miksa. Manrope. Google Fonts. https://fonts.google.com/specimen/Manrope */
+    .node-label {      font-family: 'Manrope', sans-serif;
+      font-size: 6px;
+      font-weight: 500;
+      fill: #fff;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* My node only */
+    .node-label-me {
+      font-size: 9px;
+      font-weight: 700;
+      fill: #fff;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="intro-container">
+    <div class="intro-title-block">
+      <div class="intro-top">It's a</div>
+      <div class="intro-display">Small<br>World</div>
+    </div>
+    <button class="start-btn" onclick="startExperience()">Start</button>
+  </div>
+
+  <!-- Hover tooltip — follows the mouse, pops up near each node on hover -->
+  <!-- Replaces the fixed top-right info panel — much more readable with 308 nodes -->
+  <div id="tooltip">
+    <div id="tt-name"></div>
+    <div id="tt-group"></div>
+    <div id="tt-links"></div>
+  </div>
+
+  <div id="bottom-left">
+    <a href="about.html" id="about-link">About</a>
+    <a href="https://www.linkedin.com/in/ayaanahmedofficial/" target="_blank" id="join-link">Join List</a>
+  </div>
+
+  <!-- Key and Forces panels side by side, bottom-right -->
+  <div id="bottom-right">
+    <div class="panel" id="key-panel">
+      <div class="panel-title" onclick="togglePanel('key-panel')">Key <span class="panel-chevron"></span></div>
+      <div class="panel-body">
+        <div id="key-grid"></div>
+        <div style="margin-top: 10px; border-top: 1px solid #2a2a2a; padding-top: 10px;">
+          <button id="toggle-elabels" class="rel-btn">Show Relationships</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="slider-panel">
+      <div class="panel-title" onclick="togglePanel('slider-panel')">Forces <span class="panel-chevron"></span></div>
+      <div class="panel-body">
+        <div class="row">
+          <label>Centre Force <span id="v-center">0.5</span></label>
+          <input type="range" id="s-center" min="0" max="0.5" value="0.5" step="0.01">
+        </div>
+        <div class="row">
+          <label>Repel Force <span id="v-charge">-1200</span></label>
+          <input type="range" id="s-charge" min="-1200" max="-30" value="-1200" step="10">
+        </div>
+        <div class="row">
+          <label>Link Force <span id="v-link">0.05</span></label>
+          <input type="range" id="s-link" min="0.05" max="1" value="0.05" step="0.05">
+        </div>
+        <div class="row">
+          <label>Link Distance <span id="v-dist">400</span></label>
+          <input type="range" id="s-dist" min="20" max="400" value="400" step="5">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="graph-wrapper">
+    <svg id="svg"></svg>
+  </div>
+
+  <script>
+
+    ///// 1. GROUPS /////
+
+    // Each group has a label and a colour sampled from a muted pastel post-it reference image
+    // The palette stays muted so when Centre Force clumps things together it blends, not clashes
+    // I had to expand the palette for all the new categories — still keeping everything in the same
+    // low-saturation warm/cool range, just more shades of it
+
+    // Muted palette but each group needs to be visually distinguishable from its neighbours
+    // Strategy: alternate warm/cool, vary lightness — no two adjacent groups share the same hue
+    // wizarding = clearly blue, batmen = warm taupe, leaders = deep slate, spidermen = dusty lilac
+    // starwars = warm straw, avengers = sage green — all still muted, all clearly different
+    const GROUPS = {
+      me:        { label: "Me",              color: "#d47a6f" }, // dusty coral — the only saturated one
+      family:    { label: "Family",          color: "#c2a99e" }, // muted rose
+      friends:   { label: "Friends",         color: "#e4c19b" }, // warm tan
+      work:      { label: "Work",            color: "#d8cdc4" }, // pale greige — lighter than directors
+      bollywood: { label: "Bollywood",       color: "#b0b0b0" }, // merged with celebs visually
+      musicians: { label: "Musicians",       color: "#c9b89a" }, // warm sand
+      football:  { label: "Football",        color: "#a8c0a0" }, // muted green — clearly greenish
+      showHosts: { label: "Show Hosts",      color: "#c8c8c8" }, // neutral mid-grey
+      knights:   { label: "Knights",         color: "#d4c890" }, // muted gold — distinctly yellow
+      directors: { label: "Directors",       color: "#a09888" }, // cool greige — darker than work
+      office:    { label: "The Office",      color: "#b8d0b8" }, // pale sage — noticeably lighter green
+      wizarding: { label: "Wizarding World", color: "#8898b8" }, // medium blue — clearly blue
+      spidermen: { label: "Spidermen",       color: "#c0a8c8" }, // dusty lilac — warm purple
+      batmen:    { label: "Batmen",          color: "#c0a888" }, // warm taupe — clearly brownish
+      avengers:  { label: "The Avengers",    color: "#98b898" }, // medium sage — clearly green, darker than office
+      starwars:  { label: "Star Wars",       color: "#c8b880" }, // warm straw — clearly warm/yellow-ish
+      celebs:    { label: "Celebrities",     color: "#b0b0b0" }, // neutral grey
+      leaders:   { label: "World Leaders",   color: "#6888a0" }, // deep cool slate — clearly darker/cooler than wizarding
+      epstein:   { label: "Epstein List",    color: "#8a5359" }, // dark muted rose-red — intentionally off
+    };
+
+
+    ///// 2. NODES /////
+
+    // 308 people, one line each
+    // Group assignments come from my Python parser — it read all 306 markdown files
+    // and applied the priority order: epstein > me > family > friends > work > avengers
+    // > starwars > batmen > spidermen > wizarding > office > directors > knights
+    // > showHosts > football > musicians > bollywood > leaders > celebs (fallback)
+    // epstein is the HIGHEST priority — it overrides everything including world leaders
+    // Anyone directly connected to Epstein gets that group regardless of other categories
+    // Lower in the list = lower priority = gets overridden by anything above it
+
+    const NODES = [
+  { id: 'Aaron Taylor-Johnson', group: 'celebs' },
+  { id: 'Adam Driver', group: 'starwars' },
+  { id: 'Adam Sandler', group: 'celebs' },
+  { id: 'Adele', group: 'musicians' },
+  { id: 'Adrien Brody', group: 'celebs' },
+  { id: 'Afaque Ahmed', group: 'family' },
+  { id: 'Alan Cumming', group: 'celebs' },
+  { id: 'Alan Rickman', group: 'wizarding' },
+  { id: 'Alec Baldwin', group: 'celebs' },
+  { id: 'Amitabh Bacchan', group: 'bollywood' },
+  { id: 'Amy Adams', group: 'celebs' },
+  { id: 'Ana De Armas', group: 'celebs' },
+  { id: 'Andrew Garfield', group: 'spidermen' },
+  { id: 'Andrew Mountbatten-Windsor', group: 'epstein' },
+  { id: 'Andy Serkis', group: 'celebs' },
+  { id: 'Angelina Jolie', group: 'celebs' },
+  { id: 'Anna Kendrick', group: 'celebs' },
+  { id: 'Anne Hathaway', group: 'celebs' },
+  { id: 'Antonio Banderas', group: 'celebs' },
+  { id: 'Arif Alvi', group: 'leaders' },
+  { id: 'Asa Butterfield', group: 'celebs' },
+  { id: 'Aubrey Plaza', group: 'celebs' },
+  { id: 'Avi Arad', group: 'directors' },
+  { id: 'Ayaan Ahmed', group: 'me' },
+  { id: 'B. J. Novak', group: 'office' },
+  { id: 'Barack Obama', group: 'leaders' },
+  { id: 'Ben Affleck', group: 'batmen' },
+  { id: 'Ben Kingsley', group: 'avengers' },
+  { id: 'Ben Stiller', group: 'celebs' },
+  { id: 'Benedict Cumberbatch', group: 'celebs' },
+  { id: 'Benjamin Netanyahu', group: 'leaders' },
+  { id: 'Beyoncé', group: 'celebs' },
+  { id: 'Beyoncé', group: 'musicians' },
+  { id: 'Bill Clinton', group: 'leaders' },
+  { id: 'Bill Gates', group: 'epstein' },
+  { id: 'Bill Hader', group: 'celebs' },
+  { id: 'Bill Murray', group: 'celebs' },
+  { id: 'Blake Lively', group: 'celebs' },
+  { id: 'Bob Iger', group: 'celebs' },
+  { id: 'Boris Johnson', group: 'leaders' },
+  { id: 'Brad Pitt', group: 'celebs' },
+  { id: 'Brie Larson', group: 'avengers' },
+  { id: 'Bryce Dallas Howard', group: 'celebs' },
+  { id: 'Butch Hartman', group: 'directors' },
+  { id: 'Cameron Diaz', group: 'celebs' },
+  { id: 'Cara Delevingne', group: 'celebs' },
+  { id: 'Carrie Fisher', group: 'starwars' },
+  { id: 'Cate Blanchett', group: 'celebs' },
+  { id: 'Catherine Zeta-Jones', group: 'celebs' },
+  { id: 'Chadwick Boseman', group: 'avengers' },
+  { id: 'Channing Tatum', group: 'celebs' },
+  { id: 'Chloë Grace Moretz', group: 'celebs' },
+  { id: 'Chloë Grace Moretz', group: 'celebs' },
+  { id: 'Chris Evans', group: 'avengers' },
+  { id: 'Chris Hemsworth', group: 'avengers' },
+  { id: 'Chris Pine', group: 'celebs' },
+  { id: 'Chris Pratt', group: 'avengers' },
+  { id: 'Christian Bale', group: 'batmen' },
+  { id: 'Christiano Ronaldo', group: 'football' },
+  { id: 'Christopher Lee', group: 'starwars' },
+  { id: 'Christopher Lloyd', group: 'celebs' },
+  { id: 'Christopher Nolan', group: 'directors' },
+  { id: 'Cillian Murphy', group: 'celebs' },
+  { id: 'Cobie Smulders', group: 'avengers' },
+  { id: 'Conan O\'Brien', group: 'showHosts' },
+  { id: 'Daisy Ridley', group: 'starwars' },
+  { id: 'Daniel Craig', group: 'celebs' },
+  { id: 'Daniel Radcliffe', group: 'wizarding' },
+  { id: 'Danny DeVito', group: 'celebs' },
+  { id: 'Dave Franco', group: 'celebs' },
+  { id: 'David Harbour', group: 'celebs' },
+  { id: 'David Kaye', group: 'celebs' },
+  { id: 'Don Cheadle', group: 'avengers' },
+  { id: 'Donald Trump', group: 'leaders' },
+  { id: 'Drake', group: 'musicians' },
+  { id: 'Dwayne Johnson', group: 'celebs' },
+  { id: 'EJAE', group: 'celebs' },
+  { id: 'Ed Sheeran', group: 'musicians' },
+  { id: 'Eddie Murphy', group: 'celebs' },
+  { id: 'Elijah Wood', group: 'celebs' },
+  { id: 'Elizabeth Olsen', group: 'avengers' },
+  { id: 'Ella Purnell', group: 'celebs' },
+  { id: 'Ellen DeGeneres', group: 'showHosts' },
+  { id: 'Elon Musk', group: 'celebs' },
+  { id: 'Elton John', group: 'musicians' },
+  { id: 'Emily Blunt', group: 'celebs' },
+  { id: 'Emma Stone', group: 'celebs' },
+  { id: 'Emma Thompson', group: 'wizarding' },
+  { id: 'Emma Watson', group: 'wizarding' },
+  { id: 'Eric Bauza', group: 'celebs' },
+  { id: 'Evangeline Lilly', group: 'avengers' },
+  { id: 'Ewan McGregor', group: 'starwars' },
+  { id: 'Florence Pugh', group: 'celebs' },
+  { id: 'Freddie Highmore', group: 'celebs' },
+  { id: 'Gal Gadot', group: 'celebs' },
+  { id: 'Gary Oldman', group: 'wizarding' },
+  { id: 'George Clooney', group: 'celebs' },
+  { id: 'George Lucas', group: 'directors' },
+  { id: 'George W Bush', group: 'leaders' },
+  { id: 'Giorgio Armani', group: 'celebs' },
+  { id: 'Greg Cipes', group: 'celebs' },
+  { id: 'Gwyneth Paltrow', group: 'celebs' },
+  { id: 'Hailee Stenfeld', group: 'celebs' },
+  { id: 'Halle Berry', group: 'celebs' },
+  { id: 'Harrison Ford', group: 'starwars' },
+  { id: 'Harry Styles', group: 'musicians' },
+  { id: 'Hayden Christensen', group: 'starwars' },
+  { id: 'Hayley Atwell', group: 'avengers' },
+  { id: 'Helena Bonham Carter', group: 'wizarding' },
+  { id: 'Henry Cavill', group: 'celebs' },
+  { id: 'Hugh Grant', group: 'celebs' },
+  { id: 'Hugh Jackman', group: 'celebs' },
+  { id: 'Hussein Mohammed Al Hassni', group: 'work' },
+  { id: 'Idina Menzel', group: 'celebs' },
+  { id: 'Idris Elba', group: 'celebs' },
+  { id: 'Imran Khan', group: 'leaders' },
+  { id: 'Isabela Merced', group: 'celebs' },
+  { id: 'Isla Fisher', group: 'celebs' },
+  { id: 'J. K. Simmons', group: 'celebs' },
+  { id: 'Jack Black', group: 'celebs' },
+  { id: 'Jackie Chan', group: 'celebs' },
+  { id: 'Jaden Smith', group: 'celebs' },
+  { id: 'Jake Gyllenhaal', group: 'celebs' },
+  { id: 'James Cameron', group: 'directors' },
+  { id: 'James Corden', group: 'showHosts' },
+  { id: 'James Franco', group: 'celebs' },
+  { id: 'James Gunn', group: 'directors' },
+  { id: 'James Marsden', group: 'celebs' },
+  { id: 'Jason Bateman', group: 'celebs' },
+  { id: 'Jason Momoa', group: 'celebs' },
+  { id: 'Jason Segel', group: 'celebs' },
+  { id: 'Jeff Bezos', group: 'celebs' },
+  { id: 'Jeff Goldblum', group: 'celebs' },
+  { id: 'Jeffrey Epstein', group: 'epstein' },
+  { id: 'Jenna Fischer', group: 'office' },
+  { id: 'Jenna Ortega', group: 'celebs' },
+  { id: 'Jennifer Aniston', group: 'celebs' },
+  { id: 'Jennifer Lawrence', group: 'celebs' },
+  { id: 'Jeremy Renner', group: 'avengers' },
+  { id: 'Jesse Eisenberg', group: 'celebs' },
+  { id: 'Jessica Alba', group: 'celebs' },
+  { id: 'Jim Carrey', group: 'celebs' },
+  { id: 'Jim Cummings', group: 'celebs' },
+  { id: 'Jimmy Fallon', group: 'showHosts' },
+  { id: 'Jimmy Kimmel', group: 'showHosts' },
+  { id: 'Joaquin Phoenix', group: 'celebs' },
+  { id: 'Joe Biden', group: 'leaders' },
+  { id: 'John Cena', group: 'celebs' },
+  { id: 'John Krasinski', group: 'office' },
+  { id: 'Johnny Depp', group: 'celebs' },
+  { id: 'Jon Favreau', group: 'directors' },
+  { id: 'Jonah Hill', group: 'celebs' },
+  { id: 'Jordan Belford', group: 'celebs' },
+  { id: 'Josh Hutcherson', group: 'celebs' },
+  { id: 'Jude Law', group: 'avengers' },
+  { id: 'Justin Bieber', group: 'musicians' },
+  { id: 'Justin Timberlake', group: 'celebs' },
+  { id: 'Justin Trudeau', group: 'leaders' },
+  { id: 'Kate Middleton', group: 'leaders' },
+  { id: 'Kate Winslet', group: 'celebs' },
+  { id: 'Kathleen Kennedy', group: 'directors' },
+  { id: 'Katie Horvath', group: 'work' },
+  { id: 'Keanu Reeves', group: 'celebs' },
+  { id: 'Keira Knightley', group: 'celebs' },
+  { id: 'Ken Jeong', group: 'celebs' },
+  { id: 'Kevin Feige', group: 'directors' },
+  { id: 'Kevin Hart', group: 'celebs' },
+  { id: 'Kevin James', group: 'celebs' },
+  { id: 'Khalid Al Ameri', group: 'celebs' },
+  { id: 'Kim Kardashian', group: 'celebs' },
+  { id: 'King Charles III', group: 'leaders' },
+  { id: 'Kirsten Dunst', group: 'celebs' },
+  { id: 'Kristen Bell', group: 'celebs' },
+  { id: 'Kristen Wiig', group: 'celebs' },
+  { id: 'Laura Dern', group: 'celebs' },
+  { id: 'Laurence Fishburne', group: 'celebs' },
+  { id: 'Leonardo Di Caprio', group: 'celebs' },
+  { id: 'Liam Hemsworth', group: 'celebs' },
+  { id: 'Liam Neeson', group: 'celebs' },
+  { id: 'Lionel Messi', group: 'football' },
+  { id: 'Macaulay Culkin', group: 'celebs' },
+  { id: 'Malala Yousafzai', group: 'celebs' },
+  { id: 'Margot Robbie', group: 'celebs' },
+  { id: 'Mark Hamill', group: 'starwars' },
+  { id: 'Mark Ruffalo', group: 'avengers' },
+  { id: 'Mark Strong', group: 'celebs' },
+  { id: 'Mark Wahlberg', group: 'celebs' },
+  { id: 'Mark Zuckerberg', group: 'celebs' },
+  { id: 'Martin Freeman', group: 'celebs' },
+  { id: 'Martin Scorsese', group: 'directors' },
+  { id: 'Matt Damon', group: 'celebs' },
+  { id: 'Matthew McConaughey', group: 'celebs' },
+  { id: 'Maya Rudolph', group: 'celebs' },
+  { id: 'McKenna Grace', group: 'celebs' },
+  { id: 'Megan Fox', group: 'celebs' },
+  { id: 'Meryl Streep', group: 'celebs' },
+  { id: 'Michael B Jordan', group: 'celebs' },
+  { id: 'Michael Caine', group: 'celebs' },
+  { id: 'Michael Cera', group: 'celebs' },
+  { id: 'Michael Douglas', group: 'celebs' },
+  { id: 'Michael J Fox', group: 'celebs' },
+  { id: 'Michael Jackson', group: 'celebs' },
+  { id: 'Michael Keaton', group: 'batmen' },
+  { id: 'Michelle Obama', group: 'leaders' },
+  { id: 'Mike Myers', group: 'celebs' },
+  { id: 'Mila Kunis', group: 'celebs' },
+  { id: 'Mindy Kaling', group: 'office' },
+  { id: 'Mohamed Abdalla Al Zaabi', group: 'work' },
+  { id: 'Mohammad Arham Khan', group: 'friends' },
+  { id: 'Mohammed Al Muallem', group: 'work' },
+  { id: 'Mohammed Bin Salman', group: 'leaders' },
+  { id: 'Morgan Freeman', group: 'celebs' },
+  { id: 'Narendra Modi', group: 'leaders' },
+  { id: 'Nas Daily', group: 'celebs' },
+  { id: 'Natalie Portman', group: 'starwars' },
+  { id: 'Neil Patrick Harris', group: 'celebs' },
+  { id: 'Nelson Mandela', group: 'leaders' },
+  { id: 'Nicolas Cage', group: 'celebs' },
+  { id: 'Octavia Spencer', group: 'celebs' },
+  { id: 'Olivia Wilde', group: 'celebs' },
+  { id: 'Oprah Winfrey', group: 'showHosts' },
+  { id: 'Oscar Isaac', group: 'starwars' },
+  { id: 'Owen Wilson', group: 'celebs' },
+  { id: 'Paul Rudd', group: 'avengers' },
+  { id: 'Prince William', group: 'leaders' },
+  { id: 'Princess Diana', group: 'leaders' },
+  { id: 'Priyanka Chopra Jones', group: 'bollywood' },
+  { id: 'Queen Elizabeth II', group: 'leaders' },
+  { id: 'Raheel Khan', group: 'leaders' },
+  { id: 'Rainn Wilson', group: 'office' },
+  { id: 'Ralph Fiennes', group: 'wizarding' },
+  { id: 'Rebel Wilson', group: 'celebs' },
+  { id: 'Reese Witherspoon', group: 'celebs' },
+  { id: 'Richard Attenborough', group: 'celebs' },
+  { id: 'Ricky Gervais', group: 'celebs' },
+  { id: 'Rishabh Dhall', group: 'friends' },
+  { id: 'Rishi Sunak', group: 'leaders' },
+  { id: 'Robert De Niro', group: 'celebs' },
+  { id: 'Robert Downey Jr', group: 'avengers' },
+  { id: 'Robert Pattinson', group: 'batmen' },
+  { id: 'Robert Zemeckis', group: 'directors' },
+  { id: 'Robin Williams', group: 'celebs' },
+  { id: 'Rose Byrne', group: 'celebs' },
+  { id: 'Rowan Atkinson', group: 'celebs' },
+  { id: 'Rupert Grint', group: 'wizarding' },
+  { id: 'Russell Crowe', group: 'celebs' },
+  { id: 'Ryan Gosling', group: 'celebs' },
+  { id: 'Ryan Reynolds', group: 'celebs' },
+  { id: 'Sacha Baron Cohen', group: 'celebs' },
+  { id: 'Salma Hayek', group: 'celebs' },
+  { id: 'Salman Khan', group: 'bollywood' },
+  { id: 'Sam Altman', group: 'celebs' },
+  { id: 'Sam Neill', group: 'celebs' },
+  { id: 'Sam Raimi', group: 'directors' },
+  { id: 'Samuel L Jackson', group: 'avengers' },
+  { id: 'Sarah Silverman', group: 'celebs' },
+  { id: 'Scarlett Johansson', group: 'avengers' },
+  { id: 'Selena Gomez', group: 'celebs' },
+  { id: 'Seth MacFarlane', group: 'celebs' },
+  { id: 'Seth Rogen', group: 'celebs' },
+  { id: 'Shaan', group: 'bollywood' },
+  { id: 'Shah Rukh Khan', group: 'bollywood' },
+  { id: 'Shakira', group: 'musicians' },
+  { id: 'Sheikh Hamdan Bin Rashid Al Maktoum', group: 'leaders' },
+  { id: 'Sheikh Mohammed Bin Rashid Al Maktoum', group: 'leaders' },
+  { id: 'Shia LaBeouf', group: 'celebs' },
+  { id: 'Sir David Attenborough', group: 'knights' },
+  { id: 'Sir Ian McKellen', group: 'knights' },
+  { id: 'Stan Lee', group: 'celebs' },
+  { id: 'Stanley Tucci', group: 'celebs' },
+  { id: 'Steve Buscemi', group: 'celebs' },
+  { id: 'Steve Carell', group: 'office' },
+  { id: 'Steve Jobs', group: 'celebs' },
+  { id: 'Steven Spielburg', group: 'directors' },
+  { id: 'Sultan Ahmed bin Sulayem', group: 'epstein' },
+  { id: 'Taika Waititi', group: 'directors' },
+  { id: 'Tara Platt', group: 'celebs' },
+  { id: 'Tara Strong', group: 'celebs' },
+  { id: 'Taron Egerton', group: 'celebs' },
+  { id: 'Taylor Swift', group: 'musicians' },
+  { id: 'Tiger Shroff', group: 'bollywood' },
+  { id: 'Tim Burton', group: 'directors' },
+  { id: 'Tim Cook', group: 'celebs' },
+  { id: 'Timothee Chalamet', group: 'celebs' },
+  { id: 'Tobey Maguire', group: 'spidermen' },
+  { id: 'Tom Cruise', group: 'celebs' },
+  { id: 'Tom Hanks', group: 'celebs' },
+  { id: 'Tom Hardy', group: 'celebs' },
+  { id: 'Tom Hiddleston', group: 'avengers' },
+  { id: 'Tom Holland', group: 'spidermen' },
+  { id: 'Tom Kenny', group: 'celebs' },
+  { id: 'Tommy Lee Jones', group: 'celebs' },
+  { id: 'Vladimir Putin', group: 'leaders' },
+  { id: 'Wes Anderson', group: 'directors' },
+  { id: 'Will Arnett', group: 'celebs' },
+  { id: 'Will Smith', group: 'celebs' },
+  { id: 'Willem Dafoe', group: 'celebs' },
+  { id: 'Winona Ryder', group: 'celebs' },
+  { id: 'Woody Harrelson', group: 'celebs' },
+  { id: 'Xi Jinping', group: 'leaders' },
+  { id: 'Yuri Lowenthal', group: 'spidermen' },
+  { id: 'Zac Efron', group: 'celebs' },
+  { id: 'Zachary Levi', group: 'celebs' },
+  { id: 'Zack Snyder', group: 'directors' },
+  { id: 'Zendaya', group: 'celebs' },
+  { id: 'Zoe Kravitz', group: 'celebs' },
+  { id: 'Zoe Saldana', group: 'avengers' },
+  { id: 'Zooey Deschanel', group: 'celebs' },    
+
+  { id: 'Irrfan Khan', group: 'family' },
+
+  // Epstein override — must come LAST so it wins in the dedup Map
+  // Anyone who has a direct connection to Epstein gets this group regardless of other categories
+  // Donald Trump appears earlier as 'leaders' — this entry overrides that
+  { id: 'Donald Trump', group: 'epstein' },
+  { id: 'Bill Clinton', group: 'epstein' },
+  { id: 'Michael Jackson', group: 'epstein' },
+  { id: 'George Lucas', group: 'epstein' },
+];
+
+
+    ///// 3. EDGES /////
+
+    // 1615 connections parsed directly from the markdown files
+    // Each edge is source → target with the relationship text from the file
+    // Duplicates were removed in the parser — if two files both mention the same connection,
+    // only the first occurrence is kept
+
+    const EDGES = [
+  { source: 'Aaron Taylor-Johnson', target: 'Chloë Grace Moretz', rel: 'Worked with' },
+  { source: 'Aaron Taylor-Johnson', target: 'Elizabeth Olsen', rel: 'Worked with' },
+  { source: 'Aaron Taylor-Johnson', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Aaron Taylor-Johnson', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Aaron Taylor-Johnson', target: 'Nicolas Cage', rel: 'Worked with' },
+  { source: 'Aaron Taylor-Johnson', target: 'Mark Strong', rel: 'Worked with' },
+  { source: 'Aaron Taylor-Johnson', target: 'Ewan McGregor', rel: 'Met' },
+  { source: 'Aaron Taylor-Johnson', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Adam Driver', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Adam Sandler', target: 'Jennifer Aniston', rel: 'Worked with' },
+  { source: 'Adam Sandler', target: 'Kevin James', rel: 'Worked with' },
+  { source: 'Adam Sandler', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Adam Sandler', target: 'Idina Menzel', rel: 'Worked with' },
+  { source: 'Adam Sandler', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Adam Sandler', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Adam Sandler', target: 'George Clooney', rel: 'Met' },
+  { source: 'Adele', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Adele', target: 'Beyoncé', rel: 'Met' },
+  { source: 'Adele', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Adele', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'Adele', target: 'Amy Adams', rel: 'Met' },
+  { source: 'Adele', target: 'Emma Stone', rel: 'Met' },
+  { source: 'Adele', target: 'Angelina Jolie', rel: 'Met' },
+  { source: 'Adele', target: 'Brad Pitt', rel: 'Met' },
+  { source: 'Adele', target: 'Prince William', rel: 'Met' },
+  { source: 'Adele', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Adrien Brody', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Willem Dafoe', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Bill Murray', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Jack Black', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Laurence Fishburne', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Cillian Murphy', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Wes Anderson', rel: 'Worked with' },
+  { source: 'Adrien Brody', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Adrien Brody', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Adrien Brody', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'Afaque Ahmed', target: 'Jordan Belford', rel: 'Met' },
+  { source: 'Afaque Ahmed', target: 'Mohammed Al Muallem', rel: 'Met' },
+  { source: 'Alan Cumming', target: 'Antonio Banderas', rel: 'Worked with' },
+  { source: 'Alan Cumming', target: 'Sir Ian McKellen', rel: 'Worked with' },
+  { source: 'Alan Cumming', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Emma Thompson', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Hugh Grant', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Kate Winslet', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Liam Neeson', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Keira Knightley', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Helena Bonham Carter', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Daniel Radcliffe', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Alan Rickman', target: 'Rupert Grint', rel: 'Worked with' },
+  { source: 'Alec Baldwin', target: 'Cameron Diaz', rel: 'Worked with' },
+  { source: 'Amitabh Bacchan', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Amitabh Bacchan', target: 'Tobey Maguire', rel: 'Met' },
+  { source: 'Amy Adams', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Jeremy Renner', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Jake Gyllenhaal', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Aaron Taylor-Johnson', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Maya Rudolph', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Idina Menzel', rel: 'Worked with' },
+  { source: 'Amy Adams', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'Amy Adams', target: 'Elizabeth Olsen', rel: 'Met' },
+  { source: 'Amy Adams', target: 'Malala Yousafzai', rel: 'Met' },
+  { source: 'Ana De Armas', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Ana De Armas', target: 'Ryan Gosling', rel: 'Worked with' },
+  { source: 'Ana De Armas', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Ana De Armas', target: 'Ben Affleck', rel: 'Worked with' },
+  { source: 'Ana De Armas', target: 'Keanu Reeves', rel: 'Worked with' },
+  { source: 'Andrew Garfield', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Andrew Garfield', target: 'Tobey Maguire', rel: 'Worked with' },
+  { source: 'Andrew Garfield', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Andrew Mountbatten-Windsor', target: 'Jeffrey Epstein', rel: 'Met' },
+  { source: 'Andy Serkis', target: 'Sir Ian McKellen', rel: 'Worked with' },
+  { source: 'Andy Serkis', target: 'Elijah Wood', rel: 'Worked with' },
+  { source: 'Andy Serkis', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Andy Serkis', target: 'Idris Elba', rel: 'Worked with' },
+  { source: 'Andy Serkis', target: 'James Cameron', rel: 'Met' },
+  { source: 'Angelina Jolie', target: 'Brad Pitt', rel: 'Married to' },
+  { source: 'Angelina Jolie', target: 'Johnny Depp', rel: 'Worked with' },
+  { source: 'Angelina Jolie', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Angelina Jolie', target: 'Tom Cruise', rel: 'Worked with' },
+  { source: 'Angelina Jolie', target: 'George Clooney', rel: 'Worked with' },
+  { source: 'Angelina Jolie', target: 'Jennifer Aniston', rel: 'Met' },
+  { source: 'Angelina Jolie', target: 'Reese Witherspoon', rel: 'Met' },
+  { source: 'Angelina Jolie', target: 'Emma Stone', rel: 'Met' },
+  { source: 'Angelina Jolie', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Angelina Jolie', target: 'Prince William', rel: 'Met' },
+  { source: 'Angelina Jolie', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Anna Kendrick', target: 'Rebel Wilson', rel: 'Worked with' },
+  { source: 'Anna Kendrick', target: 'Blake Lively', rel: 'Worked with' },
+  { source: 'Anna Kendrick', target: 'Justin Timberlake', rel: 'Worked with' },
+  { source: 'Anna Kendrick', target: 'James Corden', rel: 'Worked with' },
+  { source: 'Anne Hathaway', target: 'Emily Blunt', rel: 'Worked with' },
+  { source: 'Anne Hathaway', target: 'Meryl Streep', rel: 'Worked with' },
+  { source: 'Anne Hathaway', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Catherine Zeta-Jones', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Salma Hayek', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Johnny Depp', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Cameron Diaz', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Mike Myers', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Eddie Murphy', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Steve Buscemi', rel: 'Worked with' },
+  { source: 'Antonio Banderas', target: 'Alan Cumming', rel: 'Worked with' },
+  { source: 'Arif Alvi', target: 'Imran Khan', rel: 'Worked with' },
+  { source: 'Arif Alvi', target: 'Prince William', rel: 'Met' },
+  { source: 'Arif Alvi', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Arif Alvi', target: 'Nas Daily', rel: 'Met' },
+  { source: 'Arif Alvi', target: 'Khalid Al Ameri', rel: 'Met' },
+  { source: 'Asa Butterfield', target: 'Chloë Grace Moretz', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Ben Kingsley', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Sacha Baron Cohen', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Martin Scorsese', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Hailee Stenfeld', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Ella Purnell', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Tim Burton', rel: 'Worked with' },
+  { source: 'Asa Butterfield', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Asa Butterfield', target: 'James Corden', rel: 'Met' },
+  { source: 'Aubrey Plaza', target: 'Chris Pratt', rel: 'Worked with' },
+  { source: 'Avi Arad', target: 'Kevin Feige', rel: 'Worked with' },
+  { source: 'Avi Arad', target: 'Stan Lee', rel: 'Worked with' },
+  { source: 'Ayaan Ahmed', target: 'Afaque Ahmed', rel: 'Is the son of' },
+  { source: 'Ayaan Ahmed', target: 'Mohammad Arham Khan', rel: 'Is friends with' },
+  { source: 'Ayaan Ahmed', target: 'Rishabh Dhall', rel: 'Is friends with' },
+  { source: 'Ayaan Ahmed', target: 'Yuri Lowenthal', rel: 'Met' },
+  { source: 'Ayaan Ahmed', target: 'Tara Platt', rel: 'Met' },
+  { source: 'Ayaan Ahmed', target: 'David Kaye', rel: 'Met' },
+  { source: 'Ayaan Ahmed', target: 'Khalid Al Ameri', rel: 'Met' },
+  { source: 'Ayaan Ahmed', target: 'Shaan', rel: 'Met' },
+  { source: 'Ayaan Ahmed', target: 'Mohammed Al Muallem', rel: 'Met' },
+  { source: 'Ayaan Ahmed', target: 'Hussein Mohammed Al Hassni', rel: 'Interned for' },
+  { source: 'Ayaan Ahmed', target: 'Katie Horvath', rel: 'Did a video shoot for' },
+  { source: 'B. J. Novak', target: 'John Krasinski', rel: 'Worked with' },
+  { source: 'B. J. Novak', target: 'Jenna Fischer', rel: 'Worked with' },
+  { source: 'B. J. Novak', target: 'Rainn Wilson', rel: 'Worked with' },
+  { source: 'B. J. Novak', target: 'Mindy Kaling', rel: 'Worked with' },
+  { source: 'Barack Obama', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Ben Affleck', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Ben Kingsley', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Ben Kingsley', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Ben Kingsley', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Ben Kingsley', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Ben Kingsley', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Ben Stiller', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Ben Stiller', target: 'Jack Black', rel: 'Worked with' },
+  { source: 'Ben Stiller', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Ben Stiller', target: 'Timothee Chalamet', rel: 'Met' },
+  { source: 'Benedict Cumberbatch', target: 'Elizabeth Olsen', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Martin Freeman', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Keira Knightley', rel: 'Worked with' },
+  { source: 'Benedict Cumberbatch', target: 'Mark Strong', rel: 'Worked with' },
+  { source: 'Benjamin Netanyahu', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Beyoncé', target: 'Shakira', rel: 'Met' },
+  { source: 'Beyoncé', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Beyoncé', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Beyoncé', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Beyoncé', target: 'Kim Kardashian', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Vladimir Putin', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Nelson Mandela', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Bill Clinton', target: 'George Clooney', rel: 'Met' },
+  { source: 'Bill Gates', target: 'Jeffrey Epstein', rel: 'Met' },
+  { source: 'Bill Gates', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Bill Hader', target: 'Kristen Wiig', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Kristen Wiig', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Adrien Brody', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Wes Anderson', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Michael Douglas', rel: 'Worked with' },
+  { source: 'Bill Murray', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Bill Murray', target: 'George Clooney', rel: 'Met' },
+  { source: 'Blake Lively', target: 'Ryan Reynolds', rel: 'Married to' },
+  { source: 'Bob Iger', target: 'Kathleen Kennedy', rel: 'Works above' },
+  { source: 'Bob Iger', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Steven Spielburg', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Steve Jobs', rel: 'Met' },
+  { source: 'Bob Iger', target: 'George Lucas', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Timothee Chalamet', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Tim Cook', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Sam Altman', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Scarlett Johansson', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Chris Hemsworth', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Paul Rudd', rel: 'Met' },
+  { source: 'Bob Iger', target: 'Jeremy Renner', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Rishi Sunak', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Justin Trudeau', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'King Charles III', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'James Corden', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Elton John', rel: 'Met' },
+  { source: 'Boris Johnson', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Brad Pitt', target: 'George Clooney', rel: 'Worked with' },
+  { source: 'Brad Pitt', target: 'Catherine Zeta-Jones', rel: 'Worked with' },
+  { source: 'Brad Pitt', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Brad Pitt', target: 'Margot Robbie', rel: 'Worked with' },
+  { source: 'Brad Pitt', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Brad Pitt', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'Brie Larson', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Brie Larson', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Brie Larson', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Brie Larson', target: 'Zoe Saldana', rel: 'Worked with' },
+  { source: 'Brie Larson', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Brie Larson', target: 'Jude Law', rel: 'Worked with' },
+  { source: 'Brie Larson', target: 'McKenna Grace', rel: 'Worked with' },
+  { source: 'Bryce Dallas Howard', target: 'Chris Pratt', rel: 'Worked with' },
+  { source: 'Bryce Dallas Howard', target: 'Henry Cavill', rel: 'Worked with' },
+  { source: 'Butch Hartman', target: 'Tara Strong', rel: 'Worked with' },
+  { source: 'Cameron Diaz', target: 'Mike Myers', rel: 'Worked with' },
+  { source: 'Cara Delevingne', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Carrie Fisher', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Carrie Fisher', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Carrie Fisher', target: 'Adam Driver', rel: 'Worked with' },
+  { source: 'Carrie Fisher', target: 'Meryl Streep', rel: 'Worked with' },
+  { source: 'Carrie Fisher', target: 'George Lucas', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Jeff Goldblum', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Idris Elba', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Sir Ian McKellen', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Andy Serkis', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Martin Freeman', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Jack Black', rel: 'Worked with' },
+  { source: 'Cate Blanchett', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Angelina Jolie', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Beyoncé', rel: 'Met' },
+  { source: 'Cate Blanchett', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Catherine Zeta-Jones', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'Chadwick Boseman', target: 'Kevin Feige', rel: 'Worked with' },
+  { source: 'Channing Tatum', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Channing Tatum', target: 'Ryan Reynolds', rel: 'Worked with' },
+  { source: 'Channing Tatum', target: 'Jonah Hill', rel: 'Worked with' },
+  { source: 'Chloë Grace Moretz', target: 'Ben Kingsley', rel: 'Worked with' },
+  { source: 'Chloë Grace Moretz', target: 'Nicolas Cage', rel: 'Worked with' },
+  { source: 'Chloë Grace Moretz', target: 'Jim Carrey', rel: 'Worked with' },
+  { source: 'Chloë Grace Moretz', target: 'Oscar Isaac', rel: 'Worked with' },
+  { source: 'Chloë Grace Moretz', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Chloë Grace Moretz', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Chris Evans', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Chris Evans', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Chris Evans', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Chris Evans', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Chris Hemsworth', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Chris Hemsworth', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Chris Hemsworth', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Chris Hemsworth', target: 'Chris Pratt', rel: 'Worked with' },
+  { source: 'Chris Hemsworth', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Chris Pine', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Chris Pratt', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Christian Bale', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Christian Bale', target: 'Liam Neeson', rel: 'Worked with' },
+  { source: 'Christian Bale', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Christian Bale', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Christiano Ronaldo', target: 'Lionel Messi', rel: 'Met' },
+  { source: 'Christiano Ronaldo', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Christiano Ronaldo', target: 'Will Smith', rel: 'Met' },
+  { source: 'Christiano Ronaldo', target: 'Sheikh Hamdan Bin Rashid Al Maktoum', rel: 'Met' },
+  { source: 'Christiano Ronaldo', target: 'Mohammed Bin Salman', rel: 'Met' },
+  { source: 'Christopher Lee', target: 'Ewan McGregor', rel: 'Worked with' },
+  { source: 'Christopher Lee', target: 'Hayden Christensen', rel: 'Worked with' },
+  { source: 'Christopher Lee', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Christopher Lloyd', target: 'Michael J Fox', rel: 'Worked with' },
+  { source: 'Christopher Lloyd', target: 'Robert Zemeckis', rel: 'Worked with' },
+  { source: 'Christopher Nolan', target: 'Matthew McConaughey', rel: 'Worked with' },
+  { source: 'Cillian Murphy', target: 'Christopher Nolan', rel: 'Worked with' },
+  { source: 'Cillian Murphy', target: 'Florence Pugh', rel: 'Worked with' },
+  { source: 'Cillian Murphy', target: 'Emily Blunt', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Neil Patrick Harris', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Jason Segel', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Cobie Smulders', target: 'Kristen Bell', rel: 'Met' },
+  { source: 'Cobie Smulders', target: 'Jennifer Aniston', rel: 'Met' },
+  { source: 'Cobie Smulders', target: 'Hugh Jackman', rel: 'Met' },
+  { source: 'Cobie Smulders', target: 'Zachary Levi', rel: 'Met' },
+  { source: 'Conan O\'Brien', target: 'Paul Rudd', rel: 'Met' },
+  { source: 'Conan O\'Brien', target: 'Adam Sandler', rel: 'Met' },
+  { source: 'Conan O\'Brien', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Daisy Ridley', target: 'Adam Driver', rel: 'Worked with' },
+  { source: 'Daisy Ridley', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Daisy Ridley', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Daisy Ridley', target: 'Carrie Fisher', rel: 'Worked with' },
+  { source: 'Daniel Craig', target: 'Ana De Armas', rel: 'Worked with' },
+  { source: 'Daniel Craig', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Daniel Radcliffe', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Danny DeVito', target: 'Michael Keaton', rel: 'Worked with' },
+  { source: 'David Harbour', target: 'Winona Ryder', rel: 'Worked with' },
+  { source: 'David Harbour', target: 'Florence Pugh', rel: 'Worked with' },
+  { source: 'David Harbour', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'David Kaye', target: 'Mark Hamill', rel: 'Met' },
+  { source: 'David Kaye', target: 'Stan Lee', rel: 'Met' },
+  { source: 'Don Cheadle', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Don Cheadle', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Don Cheadle', target: 'Kevin Hart', rel: 'Worked with' },
+  { source: 'Don Cheadle', target: 'Jackie Chan', rel: 'Worked with' },
+  { source: 'Drake', target: 'Lionel Messi', rel: 'Met' },
+  { source: 'Drake', target: 'Justin Bieber', rel: 'Met' },
+  { source: 'Drake', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Drake', target: 'Will Smith', rel: 'Met' },
+  { source: 'Dwayne Johnson', target: 'Ryan Reynolds', rel: 'Met' },
+  { source: 'Dwayne Johnson', target: 'John Cena', rel: 'Met' },
+  { source: 'Dwayne Johnson', target: 'Christiano Ronaldo', rel: 'Met' },
+  { source: 'Dwayne Johnson', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Dwayne Johnson', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'EJAE', target: 'Ken Jeong', rel: 'Worked with' },
+  { source: 'Ed Sheeran', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Ed Sheeran', target: 'Justin Bieber', rel: 'Met' },
+  { source: 'Ed Sheeran', target: 'Emma Watson', rel: 'Met' },
+  { source: 'Ed Sheeran', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Eddie Murphy', target: 'Cameron Diaz', rel: 'Worked with' },
+  { source: 'Eddie Murphy', target: 'Mike Myers', rel: 'Worked with' },
+  { source: 'Elijah Wood', target: 'Sir Ian McKellen', rel: 'Worked with' },
+  { source: 'Elizabeth Olsen', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Elizabeth Olsen', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Ella Purnell', target: 'Asa Butterfield', rel: 'Worked with' },
+  { source: 'Ella Purnell', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Ellen DeGeneres', target: 'Adele', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Jessica Alba', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Antonio Banderas', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Justin Bieber', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Will Arnett', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Ken Jeong', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Alec Baldwin', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Michelle Obama', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Jennifer Aniston', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Kim Kardashian', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Emma Stone', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Ellen DeGeneres', target: 'Natalie Portman', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Jeff Bezos', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Mark Zuckerberg', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Tom Cruise', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Will Smith', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Vladimir Putin', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Elon Musk', target: 'Imran Khan', rel: 'Met' },
+  { source: 'Elton John', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Elton John', target: 'Taron Egerton', rel: 'Met' },
+  { source: 'Elton John', target: 'Princess Diana', rel: 'Met' },
+  { source: 'Emily Blunt', target: 'John Krasinski', rel: 'Married to' },
+  { source: 'Emily Blunt', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Emma Stone', target: 'Andrew Garfield', rel: 'Worked with' },
+  { source: 'Emma Thompson', target: 'Alan Rickman', rel: 'Worked with' },
+  { source: 'Emma Watson', target: 'Daniel Radcliffe', rel: 'Worked with' },
+  { source: 'Emma Watson', target: 'Rupert Grint', rel: 'Worked with' },
+  { source: 'Eric Bauza', target: 'Tom Kenny', rel: 'Met' },
+  { source: 'Eric Bauza', target: 'Tara Strong', rel: 'Met' },
+  { source: 'Eric Bauza', target: 'Butch Hartman', rel: 'Met' },
+  { source: 'Evangeline Lilly', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Ewan McGregor', target: 'Hayden Christensen', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Cillian Murphy', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Timothee Chalamet', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Meryl Streep', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Harry Styles', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Zendaya', rel: 'Worked with' },
+  { source: 'Florence Pugh', target: 'Chris Pine', rel: 'Worked with' },
+  { source: 'Freddie Highmore', target: 'Johnny Depp', rel: 'Worked with' },
+  { source: 'Freddie Highmore', target: 'Helena Bonham Carter', rel: 'Worked with' },
+  { source: 'Freddie Highmore', target: 'Tim Burton', rel: 'Worked with' },
+  { source: 'Freddie Highmore', target: 'Christopher Lee', rel: 'Worked with' },
+  { source: 'Gal Gadot', target: 'Ryan Reynolds', rel: 'Worked with' },
+  { source: 'Gal Gadot', target: 'Chris Pine', rel: 'Worked with' },
+  { source: 'Gal Gadot', target: 'Dwayne Johnson', rel: 'Worked with' },
+  { source: 'Gary Oldman', target: 'Daniel Radcliffe', rel: 'Worked with' },
+  { source: 'Gary Oldman', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Gary Oldman', target: 'Rupert Grint', rel: 'Worked with' },
+  { source: 'Gary Oldman', target: 'Alan Rickman', rel: 'Worked with' },
+  { source: 'Gary Oldman', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Gary Oldman', target: 'Helena Bonham Carter', rel: 'Worked with' },
+  { source: 'George Clooney', target: 'Catherine Zeta-Jones', rel: 'Worked with' },
+  { source: 'George Clooney', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'George Clooney', target: 'Ryan Gosling', rel: 'Worked with' },
+  { source: 'George Clooney', target: 'Ewan McGregor', rel: 'Worked with' },
+  { source: 'George Clooney', target: 'Barack Obama', rel: 'Met' },
+  { source: 'George Clooney', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'George Clooney', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'George Lucas', target: 'Steven Spielburg', rel: 'Met' },
+  { source: 'George Lucas', target: 'Harrison Ford', rel: 'Met' },
+  { source: 'George Lucas', target: 'Kathleen Kennedy', rel: 'Met' },
+  { source: 'George Lucas', target: 'Mark Hamill', rel: 'Met' },
+  { source: 'George Lucas', target: 'Samuel L Jackson', rel: 'Met' },
+  { source: 'George Lucas', target: 'Carrie Fisher', rel: 'Met' },
+  { source: 'George W Bush', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'George W Bush', target: 'Barack Obama', rel: 'Met' },
+  { source: 'George W Bush', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'George W Bush', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'George W Bush', target: 'Michelle Obama', rel: 'Met' },
+  { source: 'Greg Cipes', target: 'Tara Strong', rel: 'Worked with' },
+  { source: 'Greg Cipes', target: 'Tom Kenny', rel: 'Met' },
+  { source: 'Greg Cipes', target: 'Eric Bauza', rel: 'Met' },
+  { source: 'Greg Cipes', target: 'Yuri Lowenthal', rel: 'Met' },
+  { source: 'Greg Cipes', target: 'Tara Platt', rel: 'Met' },
+  { source: 'Gwyneth Paltrow', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Gwyneth Paltrow', target: 'Jack Black', rel: 'Worked with' },
+  { source: 'Hailee Stenfeld', target: 'Michael B Jordan', rel: 'Worked with' },
+  { source: 'Hailee Stenfeld', target: 'Zendaya', rel: 'Met' },
+  { source: 'Hailee Stenfeld', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Halle Berry', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Halle Berry', target: 'Sir Ian McKellen', rel: 'Worked with' },
+  { source: 'Halle Berry', target: 'Alan Cumming', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'Carrie Fisher', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'Adam Driver', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'Ryan Gosling', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'George Lucas', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Harrison Ford', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Harrison Ford', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'Harry Styles', target: 'Florence Pugh', rel: 'Worked with' },
+  { source: 'Hayden Christensen', target: 'Ewan McGregor', rel: 'Worked with' },
+  { source: 'Hayden Christensen', target: 'Natalie Portman', rel: 'Worked with' },
+  { source: 'Hayley Atwell', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Hayley Atwell', target: 'Stanley Tucci', rel: 'Worked with' },
+  { source: 'Hayley Atwell', target: 'Tom Cruise', rel: 'Worked with' },
+  { source: 'Helena Bonham Carter', target: 'Daniel Radcliffe', rel: 'Worked with' },
+  { source: 'Helena Bonham Carter', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Helena Bonham Carter', target: 'Rupert Grint', rel: 'Worked with' },
+  { source: 'Helena Bonham Carter', target: 'Freddie Highmore', rel: 'Worked with' },
+  { source: 'Henry Cavill', target: 'Amy Adams', rel: 'Worked with' },
+  { source: 'Henry Cavill', target: 'Ben Affleck', rel: 'Worked with' },
+  { source: 'Henry Cavill', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Henry Cavill', target: 'Jason Momoa', rel: 'Worked with' },
+  { source: 'Hugh Grant', target: 'Rowan Atkinson', rel: 'Worked with' },
+  { source: 'Hugh Jackman', target: 'Zac Efron', rel: 'Worked with' },
+  { source: 'Hugh Jackman', target: 'Zendaya', rel: 'Worked with' },
+  { source: 'Hussein Mohammed Al Hassni', target: 'Mohamed Abdalla Al Zaabi', rel: 'Worked for' },
+  { source: 'Idina Menzel', target: 'Kristen Bell', rel: 'Worked with' },
+  { source: 'Idris Elba', target: 'Jim Carrey', rel: 'Worked with' },
+  { source: 'Idris Elba', target: 'James Marsden', rel: 'Worked with' },
+  { source: 'Imran Khan', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Imran Khan', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Imran Khan', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Imran Khan', target: 'Prince William', rel: 'Met' },
+  { source: 'Isabela Merced', target: 'Rose Byrne', rel: 'Worked with' },
+  { source: 'Isabela Merced', target: 'Mark Wahlberg', rel: 'Worked with' },
+  { source: 'Isabela Merced', target: 'James Gunn', rel: 'Worked with' },
+  { source: 'Isla Fisher', target: 'Sacha Baron Cohen', rel: 'Married to' },
+  { source: 'Isla Fisher', target: 'Jesse Eisenberg', rel: 'Worked with' },
+  { source: 'Isla Fisher', target: 'Dave Franco', rel: 'Worked with' },
+  { source: 'Isla Fisher', target: 'Woody Harrelson', rel: 'Worked with' },
+  { source: 'J. K. Simmons', target: 'Tobey Maguire', rel: 'Worked with' },
+  { source: 'Jack Black', target: 'Ben Stiller', rel: 'Met' },
+  { source: 'Jack Black', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Jack Black', target: 'Owen Wilson', rel: 'Met' },
+  { source: 'Jack Black', target: 'Natalie Portman', rel: 'Met' },
+  { source: 'Jack Black', target: 'J. K. Simmons', rel: 'Met' },
+  { source: 'Jackie Chan', target: 'Jaden Smith', rel: 'Worked with' },
+  { source: 'Jaden Smith', target: 'Will Smith', rel: 'Is the son of' },
+  { source: 'Jake Gyllenhaal', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Jake Gyllenhaal', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'James Cameron', target: 'Kate Winslet', rel: 'Worked with' },
+  { source: 'James Cameron', target: 'Zoe Saldana', rel: 'Worked with' },
+  { source: 'James Corden', target: 'Adam Driver', rel: 'Met' },
+  { source: 'James Corden', target: 'Adam Sandler', rel: 'Met' },
+  { source: 'James Corden', target: 'Adele', rel: 'Met' },
+  { source: 'James Corden', target: 'Adrien Brody', rel: 'Met' },
+  { source: 'James Corden', target: 'Alan Rickman', rel: 'Met' },
+  { source: 'James Corden', target: 'Amy Adams', rel: 'Met' },
+  { source: 'James Corden', target: 'Anna Kendrick', rel: 'Met' },
+  { source: 'James Corden', target: 'Benedict Cumberbatch', rel: 'Met' },
+  { source: 'James Corden', target: 'Ben Affleck', rel: 'Met' },
+  { source: 'James Corden', target: 'Brad Pitt', rel: 'Met' },
+  { source: 'James Corden', target: 'Brie Larson', rel: 'Met' },
+  { source: 'James Corden', target: 'Bryce Dallas Howard', rel: 'Met' },
+  { source: 'James Corden', target: 'Cameron Diaz', rel: 'Met' },
+  { source: 'James Corden', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'James Corden', target: 'Chadwick Boseman', rel: 'Met' },
+  { source: 'James Corden', target: 'Channing Tatum', rel: 'Met' },
+  { source: 'James Corden', target: 'Chris Evans', rel: 'Met' },
+  { source: 'James Corden', target: 'Chris Hemsworth', rel: 'Met' },
+  { source: 'James Corden', target: 'Chris Pratt', rel: 'Met' },
+  { source: 'James Corden', target: 'Christian Bale', rel: 'Met' },
+  { source: 'James Corden', target: 'Daniel Craig', rel: 'Met' },
+  { source: 'James Corden', target: 'Daniel Radcliffe', rel: 'Met' },
+  { source: 'James Corden', target: 'Don Cheadle', rel: 'Met' },
+  { source: 'James Corden', target: 'Eddie Murphy', rel: 'Met' },
+  { source: 'James Corden', target: 'Emma Stone', rel: 'Met' },
+  { source: 'James Corden', target: 'Emily Blunt', rel: 'Met' },
+  { source: 'James Corden', target: 'Gal Gadot', rel: 'Met' },
+  { source: 'James Corden', target: 'Gary Oldman', rel: 'Met' },
+  { source: 'James Corden', target: 'George Clooney', rel: 'Met' },
+  { source: 'James Corden', target: 'Hailee Stenfeld', rel: 'Met' },
+  { source: 'James Corden', target: 'Halle Berry', rel: 'Met' },
+  { source: 'James Corden', target: 'Harrison Ford', rel: 'Met' },
+  { source: 'James Corden', target: 'Henry Cavill', rel: 'Met' },
+  { source: 'James Corden', target: 'Idris Elba', rel: 'Met' },
+  { source: 'James Corden', target: 'Jake Gyllenhaal', rel: 'Met' },
+  { source: 'James Corden', target: 'Jason Bateman', rel: 'Met' },
+  { source: 'James Corden', target: 'Jason Momoa', rel: 'Met' },
+  { source: 'James Corden', target: 'Jennifer Aniston', rel: 'Met' },
+  { source: 'James Corden', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'James Corden', target: 'Joaquin Phoenix', rel: 'Met' },
+  { source: 'James Corden', target: 'Keanu Reeves', rel: 'Met' },
+  { source: 'James Corden', target: 'Kevin Hart', rel: 'Met' },
+  { source: 'James Corden', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'James Corden', target: 'Margot Robbie', rel: 'Met' },
+  { source: 'James Corden', target: 'Mark Ruffalo', rel: 'Met' },
+  { source: 'James Corden', target: 'Matthew McConaughey', rel: 'Met' },
+  { source: 'James Corden', target: 'Michael B Jordan', rel: 'Met' },
+  { source: 'James Corden', target: 'Mila Kunis', rel: 'Met' },
+  { source: 'James Corden', target: 'Octavia Spencer', rel: 'Met' },
+  { source: 'James Corden', target: 'Robert De Niro', rel: 'Met' },
+  { source: 'James Corden', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'James Corden', target: 'Scarlett Johansson', rel: 'Met' },
+  { source: 'James Corden', target: 'Taron Egerton', rel: 'Met' },
+  { source: 'James Corden', target: 'Tom Cruise', rel: 'Met' },
+  { source: 'James Corden', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'James Corden', target: 'Tom Holland', rel: 'Met' },
+  { source: 'James Corden', target: 'Drake', rel: 'Met' },
+  { source: 'James Corden', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'James Corden', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'James Franco', target: 'Seth Rogen', rel: 'Worked with' },
+  { source: 'James Franco', target: 'Dave Franco', rel: 'Is the brother of' },
+  { source: 'James Franco', target: 'Tobey Maguire', rel: 'Worked with' },
+  { source: 'James Franco', target: 'Kirsten Dunst', rel: 'Worked with' },
+  { source: 'James Franco', target: 'Willem Dafoe', rel: 'Worked with' },
+  { source: 'James Franco', target: 'Mila Kunis', rel: 'Worked with' },
+  { source: 'James Franco', target: 'Sam Raimi', rel: 'Worked with' },
+  { source: 'James Franco', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'James Franco', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'James Franco', target: 'Shia LaBeouf', rel: 'Met' },
+  { source: 'James Franco', target: 'Zooey Deschanel', rel: 'Met' },
+  { source: 'James Gunn', target: 'Chris Pratt', rel: 'Worked with' },
+  { source: 'James Marsden', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'James Marsden', target: 'Sir Ian McKellen', rel: 'Worked with' },
+  { source: 'James Marsden', target: 'Alan Cumming', rel: 'Worked with' },
+  { source: 'James Marsden', target: 'Halle Berry', rel: 'Worked with' },
+  { source: 'Jason Bateman', target: 'Bill Hader', rel: 'Worked with' },
+  { source: 'Jason Bateman', target: 'Kristen Wiig', rel: 'Worked with' },
+  { source: 'Jason Bateman', target: 'Seth Rogen', rel: 'Worked with' },
+  { source: 'Jason Bateman', target: 'Shakira', rel: 'Worked with' },
+  { source: 'Jason Bateman', target: 'Idris Elba', rel: 'Worked with' },
+  { source: 'Jason Bateman', target: 'J. K. Simmons', rel: 'Worked with' },
+  { source: 'Jason Momoa', target: 'Ben Affleck', rel: 'Worked with' },
+  { source: 'Jason Momoa', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Jason Segel', target: 'Cobie Smulders', rel: 'Worked with' },
+  { source: 'Jason Segel', target: 'Neil Patrick Harris', rel: 'Worked with' },
+  { source: 'Jason Segel', target: 'Kristen Bell', rel: 'Worked with' },
+  { source: 'Jason Segel', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Jason Segel', target: 'Mila Kunis', rel: 'Worked with' },
+  { source: 'Jason Segel', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Jeff Bezos', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Jeff Bezos', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Jeff Bezos', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Jeff Bezos', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Jeff Bezos', target: 'Chris Hemsworth', rel: 'Met' },
+  { source: 'Jeff Bezos', target: 'Shah Rukh Khan', rel: 'Met' },
+  { source: 'Jeff Goldblum', target: 'Sam Neill', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Laura Dern', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Richard Attenborough', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Bryce Dallas Howard', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Will Smith', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Cate Blanchett', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Taika Waititi', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Bill Murray', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Adrien Brody', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Wes Anderson', rel: 'Worked with' },
+  { source: 'Jeff Goldblum', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Jeff Goldblum', target: 'James Corden', rel: 'Met' },
+  { source: 'Jeff Goldblum', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Jeff Goldblum', target: 'Scarlett Johansson', rel: 'Met' },
+  { source: 'Jeffrey Epstein', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Jeffrey Epstein', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Jenna Fischer', target: 'John Krasinski', rel: 'Worked with' },
+  { source: 'Jenna Fischer', target: 'Rainn Wilson', rel: 'Worked with' },
+  { source: 'Jenna Fischer', target: 'Mindy Kaling', rel: 'Worked with' },
+  { source: 'Jenna Fischer', target: 'B. J. Novak', rel: 'Worked with' },
+  { source: 'Jenna Ortega', target: 'Catherine Zeta-Jones', rel: 'Worked with' },
+  { source: 'Jennifer Aniston', target: 'Adam Sandler', rel: 'Worked with' },
+  { source: 'Jennifer Aniston', target: 'Brad Pitt', rel: 'Met' },
+  { source: 'Jennifer Lawrence', target: 'Josh Hutcherson', rel: 'Worked with' },
+  { source: 'Jennifer Lawrence', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Jennifer Lawrence', target: 'Robert Pattinson', rel: 'Worked with' },
+  { source: 'Jennifer Lawrence', target: 'Anne Hathaway', rel: 'Met' },
+  { source: 'Jeremy Renner', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Jeremy Renner', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Jeremy Renner', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Jeremy Renner', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Jeremy Renner', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Andrew Garfield', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Justin Timberlake', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Woody Harrelson', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Isla Fisher', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Dave Franco', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Ben Affleck', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Henry Cavill', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Amy Adams', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Zack Snyder', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Jesse Eisenberg', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Jesse Eisenberg', target: 'Elizabeth Olsen', rel: 'Worked with' },
+  { source: 'Jessica Alba', target: 'Hayden Christensen', rel: 'Worked with' },
+  { source: 'Jessica Alba', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Jessica Alba', target: 'Stanley Tucci', rel: 'Worked with' },
+  { source: 'Jessica Alba', target: 'Reese Witherspoon', rel: 'Met' },
+  { source: 'Jessica Alba', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Jessica Alba', target: 'Selena Gomez', rel: 'Met' },
+  { source: 'Jessica Alba', target: 'George Clooney', rel: 'Met' },
+  { source: 'Jim Carrey', target: 'Cameron Diaz', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Danny DeVito', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Kate Winslet', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Elijah Wood', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Zooey Deschanel', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Jennifer Aniston', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Steve Carell', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Steve Buscemi', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Olivia Wilde', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Ricky Gervais', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Ryan Gosling', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Will Smith', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Robin Williams', rel: 'Worked with' },
+  { source: 'Jim Carrey', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Jim Carrey', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Jim Carrey', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Jim Carrey', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Jim Cummings', target: 'Tom Kenny', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Adam Driver', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Adam Sandler', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Adele', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Adrien Brody', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Alan Rickman', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Amy Adams', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Anna Kendrick', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Benedict Cumberbatch', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Ben Affleck', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Brad Pitt', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Brie Larson', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Bryce Dallas Howard', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Cameron Diaz', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Chadwick Boseman', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Channing Tatum', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Chris Evans', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Chris Hemsworth', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Chris Pratt', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Christian Bale', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Daniel Craig', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Daniel Radcliffe', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Don Cheadle', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Eddie Murphy', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Emma Stone', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Emily Blunt', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Gal Gadot', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Gary Oldman', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'George Clooney', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Hailee Stenfeld', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Halle Berry', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Harrison Ford', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Henry Cavill', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Idris Elba', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Jake Gyllenhaal', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Jason Bateman', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Jason Momoa', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Jennifer Aniston', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Joaquin Phoenix', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Keanu Reeves', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Kevin Hart', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Margot Robbie', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Mark Ruffalo', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Matthew McConaughey', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Michael B Jordan', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Mila Kunis', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Octavia Spencer', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Robert De Niro', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Scarlett Johansson', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Taron Egerton', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Tom Cruise', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Tom Holland', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Drake', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Anne Hathaway', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Josh Hutcherson', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Paul Rudd', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Ryan Gosling', rel: 'Met' },
+  { source: 'Jimmy Fallon', target: 'Zendaya', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Barack Obama', rel: 'Interviewed' },
+  { source: 'Jimmy Kimmel', target: 'Joe Biden', rel: 'Interviewed' },
+  { source: 'Jimmy Kimmel', target: 'Ben Stiller', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Paul Rudd', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'George Clooney', rel: 'Interviewed' },
+  { source: 'Jimmy Kimmel', target: 'John Krasinski', rel: 'Interviewed' },
+  { source: 'Jimmy Kimmel', target: 'Johnny Depp', rel: 'Interviewed' },
+  { source: 'Jimmy Kimmel', target: 'Adam Driver', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Adam Sandler', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Adele', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Adrien Brody', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Alan Rickman', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Amy Adams', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Anna Kendrick', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Benedict Cumberbatch', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Ben Affleck', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Brad Pitt', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Brie Larson', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Bryce Dallas Howard', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Cameron Diaz', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Chadwick Boseman', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Channing Tatum', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Chris Evans', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Chris Hemsworth', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Chris Pratt', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Christian Bale', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Daniel Craig', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Daniel Radcliffe', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Don Cheadle', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Eddie Murphy', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Emma Stone', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Emily Blunt', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Gal Gadot', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Gary Oldman', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Hailee Stenfeld', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Halle Berry', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Harrison Ford', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Henry Cavill', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Idris Elba', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Jake Gyllenhaal', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Jason Bateman', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Jason Momoa', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Jennifer Aniston', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Joaquin Phoenix', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Keanu Reeves', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Kevin Hart', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Margot Robbie', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Mark Ruffalo', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Matthew McConaughey', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Michael B Jordan', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Mila Kunis', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Octavia Spencer', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Robert De Niro', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Scarlett Johansson', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Taron Egerton', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Tom Cruise', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Tom Holland', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Drake', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Jimmy Kimmel', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Joaquin Phoenix', target: 'Robert De Niro', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Martin Scorsese', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Natalie Portman', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Jake Gyllenhaal', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Meryl Streep', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Adrien Brody', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Amy Adams', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Tommy Lee Jones', rel: 'Worked with' },
+  { source: 'Joaquin Phoenix', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Joaquin Phoenix', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Joaquin Phoenix', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Joaquin Phoenix', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Vladimir Putin', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Justin Trudeau', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Tim Cook', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Mark Zuckerberg', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Joe Biden', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'John Cena', target: 'James Gunn', rel: 'Worked with' },
+  { source: 'John Krasinski', target: 'Emily Blunt', rel: 'Married to' },
+  { source: 'Johnny Depp', target: 'Keira Knightley', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Jon Favreau', target: 'Kevin Feige', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Margot Robbie', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Matthew McConaughey', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Drake', rel: 'Met' },
+  { source: 'Jonah Hill', target: 'Martin Scorsese', rel: 'Worked with' },
+  { source: 'Jonah Hill', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'Jordan Belford', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Jordan Belford', target: 'Jonah Hill', rel: 'Met' },
+  { source: 'Jordan Belford', target: 'Martin Scorsese', rel: 'Met' },
+  { source: 'Jordan Belford', target: 'Drake', rel: 'Met' },
+  { source: 'Josh Hutcherson', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Cate Blanchett', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Matt Damon', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Bill Murray', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Natalie Portman', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Wes Anderson', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Jude Law', target: 'Keira Knightley', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Benedict Cumberbatch', rel: 'Worked with' },
+  { source: 'Jude Law', target: 'Asa Butterfield', rel: 'Worked with' },
+  { source: 'Justin Bieber', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Justin Bieber', target: 'Justin Trudeau', rel: 'Met' },
+  { source: 'Justin Bieber', target: 'Selena Gomez', rel: 'Dated' },
+  { source: 'Justin Bieber', target: 'Drake', rel: 'Met' },
+  { source: 'Justin Timberlake', target: 'Andrew Garfield', rel: 'Worked with' },
+  { source: 'Justin Trudeau', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'King Charles III', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Prince William', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Ryan Reynolds', rel: 'Met' },
+  { source: 'Justin Trudeau', target: 'Drake', rel: 'Met' },
+  { source: 'Kate Middleton', target: 'Prince William', rel: 'Married to' },
+  { source: 'Kate Middleton', target: 'Princess Diana', rel: 'Daughter in Law of' },
+  { source: 'Kate Middleton', target: 'Queen Elizabeth II', rel: 'Granddaughter in Law of' },
+  { source: 'Kate Middleton', target: 'Sir David Attenborough', rel: 'Met' },
+  { source: 'Kate Middleton', target: 'Kate Winslet', rel: 'Met' },
+  { source: 'Kate Winslet', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'George Lucas', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Carrie Fisher', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Adam Driver', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Liam Neeson', rel: 'Worked with' },
+  { source: 'Kathleen Kennedy', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'Katie Horvath', target: 'Drake', rel: 'Does skincare for' },
+  { source: 'Keanu Reeves', target: 'Ana De Armas', rel: 'Worked with' },
+  { source: 'Keira Knightley', target: 'Johnny Depp', rel: 'Worked with' },
+  { source: 'Ken Jeong', target: 'Zac Efron', rel: 'Worked with' },
+  { source: 'Ken Jeong', target: 'Kevin Hart', rel: 'Worked with' },
+  { source: 'Ken Jeong', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Ken Jeong', target: 'EJAE', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Jeremy Renner', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Benedict Cumberbatch', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Chadwick Boseman', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Chris Pratt', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Zoe Saldana', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Elizabeth Olsen', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Hayley Atwell', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Jon Favreau', rel: 'Worked with' },
+  { source: 'Kevin Feige', target: 'Avi Arad', rel: 'Worked with' },
+  { source: 'Kevin Hart', target: 'Dwayne Johnson', rel: 'Worked with' },
+  { source: 'Kevin Hart', target: 'Jack Black', rel: 'Worked with' },
+  { source: 'Kevin James', target: 'Adam Sandler', rel: 'Worked with' },
+  { source: 'Khalid Al Ameri', target: 'Nas Daily', rel: 'Collaborated with' },
+  { source: 'Kim Kardashian', target: 'Adele', rel: 'Met' },
+  { source: 'Kim Kardashian', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'King Charles III', target: 'Queen Elizabeth II', rel: 'Is the son of' },
+  { source: 'King Charles III', target: 'Sheikh Mohammed Bin Rashid Al Maktoum', rel: 'Met' },
+  { source: 'King Charles III', target: 'Sheikh Hamdan Bin Rashid Al Maktoum', rel: 'Met' },
+  { source: 'Kirsten Dunst', target: 'Tobey Maguire', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'James Franco', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'J. K. Simmons', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'Tom Cruise', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'Antonio Banderas', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'Sam Raimi', rel: 'Worked with' },
+  { source: 'Kirsten Dunst', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Kirsten Dunst', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Kristen Bell', target: 'Idina Menzel', rel: 'Worked with' },
+  { source: 'Kristen Wiig', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Kristen Wiig', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Kristen Wiig', target: 'Steve Carell', rel: 'Worked with' },
+  { source: 'Kristen Wiig', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Sam Neill', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Jeff Goldblum', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Richard Attenborough', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Adam Driver', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Reese Witherspoon', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Zoe Kravitz', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Daisy Ridley', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Laura Dern', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Laura Dern', target: 'James Corden', rel: 'Met' },
+  { source: 'Laura Dern', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Laura Dern', target: 'Emma Stone', rel: 'Met' },
+  { source: 'Laurence Fishburne', target: 'Keanu Reeves', rel: 'Worked with' },
+  { source: 'Laurence Fishburne', target: 'Willem Dafoe', rel: 'Worked with' },
+  { source: 'Laurence Fishburne', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Laurence Fishburne', target: 'Michael Douglas', rel: 'Worked with' },
+  { source: 'Laurence Fishburne', target: 'Evangeline Lilly', rel: 'Worked with' },
+  { source: 'Leonardo Di Caprio', target: 'Martin Scorsese', rel: 'Met' },
+  { source: 'Leonardo Di Caprio', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Leonardo Di Caprio', target: 'Margot Robbie', rel: 'Met' },
+  { source: 'Leonardo Di Caprio', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Leonardo Di Caprio', target: 'Kate Winslet', rel: 'Worked with' },
+  { source: 'Liam Hemsworth', target: 'Chris Hemsworth', rel: 'Is the brother of' },
+  { source: 'Liam Neeson', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Liam Neeson', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Liam Neeson', target: 'Ben Kingsley', rel: 'Worked with' },
+  { source: 'Liam Neeson', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Liam Neeson', target: 'Martin Scorsese', rel: 'Worked with' },
+  { source: 'Lionel Messi', target: 'Christiano Ronaldo', rel: 'Met' },
+  { source: 'Lionel Messi', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Lionel Messi', target: 'Will Smith', rel: 'Met' },
+  { source: 'Lionel Messi', target: 'Drake', rel: 'Met' },
+  { source: 'Macaulay Culkin', target: 'Michael Jackson', rel: 'Friends with' },
+  { source: 'Malala Yousafzai', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Malala Yousafzai', target: 'Michelle Obama', rel: 'Met' },
+  { source: 'Malala Yousafzai', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'Malala Yousafzai', target: 'Priyanka Chopra Jones', rel: 'Met' },
+  { source: 'Malala Yousafzai', target: 'Emma Watson', rel: 'Met' },
+  { source: 'Margot Robbie', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Margot Robbie', target: 'Will Smith', rel: 'Met' },
+  { source: 'Margot Robbie', target: 'Martin Scorsese', rel: 'Met' },
+  { source: 'Mark Hamill', target: 'Harrison Ford', rel: 'Met' },
+  { source: 'Mark Hamill', target: 'George Lucas', rel: 'Met' },
+  { source: 'Mark Hamill', target: 'Carrie Fisher', rel: 'Met' },
+  { source: 'Mark Hamill', target: 'Hayden Christensen', rel: 'Met' },
+  { source: 'Mark Ruffalo', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Mark Ruffalo', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Mark Ruffalo', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Mark Ruffalo', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Mark Strong', target: 'Benedict Cumberbatch', rel: 'Worked with' },
+  { source: 'Mark Strong', target: 'Emily Blunt', rel: 'Worked with' },
+  { source: 'Mark Wahlberg', target: 'Mila Kunis', rel: 'Worked with' },
+  { source: 'Mark Zuckerberg', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Martin Freeman', target: 'Jenna Ortega', rel: 'Worked with' },
+  { source: 'Martin Scorsese', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Martin Scorsese', target: 'Liam Neeson', rel: 'Met' },
+  { source: 'Martin Scorsese', target: 'Ben Kingsley', rel: 'Met' },
+  { source: 'Martin Scorsese', target: 'Tom Cruise', rel: 'Met' },
+  { source: 'Martin Scorsese', target: 'Jude Law', rel: 'Met' },
+  { source: 'Martin Scorsese', target: 'Giorgio Armani', rel: 'Met' },
+  { source: 'Martin Scorsese', target: 'Chloë Grace Moretz', rel: 'Met' },
+  { source: 'Matt Damon', target: 'Matthew McConaughey', rel: 'Worked with' },
+  { source: 'Matt Damon', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Jonah Hill', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Margot Robbie', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Tom Cruise', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Jack Black', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Christopher Nolan', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Martin Scorsese', rel: 'Worked with' },
+  { source: 'Matthew McConaughey', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Matthew McConaughey', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Maya Rudolph', target: 'James Corden', rel: 'Worked with' },
+  { source: 'Maya Rudolph', target: 'Ryan Reynolds', rel: 'Worked with' },
+  { source: 'Maya Rudolph', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'McKenna Grace', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Megan Fox', target: 'Shia LaBeouf', rel: 'Worked with' },
+  { source: 'Meryl Streep', target: 'Emily Blunt', rel: 'Worked with' },
+  { source: 'Meryl Streep', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Michael B Jordan', target: 'Chadwick Boseman', rel: 'Worked with' },
+  { source: 'Michael B Jordan', target: 'Hailee Stenfeld', rel: 'Worked with' },
+  { source: 'Michael Caine', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Michael Caine', target: 'Gary Oldman', rel: 'Worked with' },
+  { source: 'Michael Caine', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Michael Caine', target: 'Cillian Murphy', rel: 'Worked with' },
+  { source: 'Michael Caine', target: 'Liam Neeson', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Jonah Hill', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Maya Rudolph', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Kristen Wiig', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Aubrey Plaza', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Anna Kendrick', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Rainn Wilson', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Brie Larson', rel: 'Worked with' },
+  { source: 'Michael Cera', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Michael Cera', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Michael Cera', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Michael Douglas', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Michael J Fox', target: 'Robert Zemeckis', rel: 'Worked with' },
+  { source: 'Michael Jackson', target: 'Princess Diana', rel: 'Met' },
+  { source: 'Michael Jackson', target: 'King Charles III', rel: 'Met' },
+  { source: 'Michael Jackson', target: 'Justin Timberlake', rel: 'Met' },
+  { source: 'Michael Jackson', target: 'Macaulay Culkin', rel: 'Friends with' },
+  { source: 'Michael Keaton', target: 'Danny DeVito', rel: 'Worked with' },
+  { source: 'Michael Keaton', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Michael Keaton', target: 'Zendaya', rel: 'Worked with' },
+  { source: 'Michelle Obama', target: 'Barack Obama', rel: 'Married to' },
+  { source: 'Mike Myers', target: 'Cameron Diaz', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'Seth MacFarlane', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'Natalie Portman', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'Winona Ryder', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'Mark Wahlberg', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'James Franco', rel: 'Worked with' },
+  { source: 'Mila Kunis', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Mila Kunis', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Mila Kunis', target: 'James Corden', rel: 'Met' },
+  { source: 'Mila Kunis', target: 'Sam Raimi', rel: 'Worked with' },
+  { source: 'Mindy Kaling', target: 'John Krasinski', rel: 'Worked with' },
+  { source: 'Mindy Kaling', target: 'Jenna Fischer', rel: 'Worked with' },
+  { source: 'Mindy Kaling', target: 'Rainn Wilson', rel: 'Worked with' },
+  { source: 'Mindy Kaling', target: 'B. J. Novak', rel: 'Worked with' },
+  { source: 'Mohamed Abdalla Al Zaabi', target: 'Bob Iger', rel: 'Met' },
+  { source: 'Mohammad Arham Khan', target: 'Raheel Khan', rel: 'Is the son of' },
+  { source: 'Mohammad Arham Khan', target: 'Nas Daily', rel: 'Met' },
+  { source: 'Mohammed Al Muallem', target: 'Sultan Ahmed bin Sulayem', rel: 'Worked with' },
+  { source: 'Mohammed Bin Salman', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Vladimir Putin', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Justin Trudeau', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Mark Zuckerberg', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Jeff Bezos', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Will Smith', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Christiano Ronaldo', rel: 'Met' },
+  { source: 'Mohammed Bin Salman', target: 'Lionel Messi', rel: 'Met' },
+  { source: 'Morgan Freeman', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Jim Carrey', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Jennifer Aniston', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Michael Caine', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Morgan Freeman', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Morgan Freeman', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Morgan Freeman', target: 'Jesse Eisenberg', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Morgan Freeman', target: 'Woody Harrelson', rel: 'Worked with' },
+  { source: 'Narendra Modi', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Benjamin Netanyahu', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Vladimir Putin', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Boris Johnson', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Justin Trudeau', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Shah Rukh Khan', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Salman Khan', rel: 'Met' },
+  { source: 'Narendra Modi', target: 'Sam Altman', rel: 'Met' },
+  { source: 'Nas Daily', target: 'Arif Alvi', rel: 'Met' },
+  { source: 'Natalie Portman', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Ewan McGregor', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Hayden Christensen', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Liam Neeson', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Mila Kunis', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Jude Law', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'George Lucas', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Taika Waititi', rel: 'Worked with' },
+  { source: 'Natalie Portman', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Natalie Portman', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Natalie Portman', target: 'Emma Watson', rel: 'Met' },
+  { source: 'Natalie Portman', target: 'Keira Knightley', rel: 'Met' },
+  { source: 'Neil Patrick Harris', target: 'Cobie Smulders', rel: 'Worked with' },
+  { source: 'Neil Patrick Harris', target: 'Jason Segel', rel: 'Worked with' },
+  { source: 'Neil Patrick Harris', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Neil Patrick Harris', target: 'Hugh Grant', rel: 'Worked with' },
+  { source: 'Neil Patrick Harris', target: 'Idina Menzel', rel: 'Met' },
+  { source: 'Neil Patrick Harris', target: 'Elton John', rel: 'Met' },
+  { source: 'Neil Patrick Harris', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Michael Jackson', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'George Clooney', rel: 'Met' },
+  { source: 'Nelson Mandela', target: 'Will Smith', rel: 'Met' },
+  { source: 'Nicolas Cage', target: 'Chloë Grace Moretz', rel: 'Worked with' },
+  { source: 'Octavia Spencer', target: 'McKenna Grace', rel: 'Worked with' },
+  { source: 'Octavia Spencer', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Octavia Spencer', target: 'Isabela Merced', rel: 'Worked with' },
+  { source: 'Octavia Spencer', target: 'Rose Byrne', rel: 'Worked with' },
+  { source: 'Octavia Spencer', target: 'Mark Wahlberg', rel: 'Worked with' },
+  { source: 'Olivia Wilde', target: 'Florence Pugh', rel: 'Worked with' },
+  { source: 'Olivia Wilde', target: 'Joaquin Phoenix', rel: 'Worked with' },
+  { source: 'Oprah Winfrey', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Nelson Mandela', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'Steven Spielburg', rel: 'Met' },
+  { source: 'Oprah Winfrey', target: 'George Clooney', rel: 'Met' },
+  { source: 'Oscar Isaac', target: 'Adam Driver', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Harrison Ford', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Carrie Fisher', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Timothee Chalamet', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Zendaya', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Jason Momoa', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Justin Timberlake', rel: 'Worked with' },
+  { source: 'Oscar Isaac', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Owen Wilson', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Owen Wilson', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Owen Wilson', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Owen Wilson', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Owen Wilson', target: 'Adam Sandler', rel: 'Met' },
+  { source: 'Owen Wilson', target: 'Selena Gomez', rel: 'Met' },
+  { source: 'Paul Rudd', target: 'Evangeline Lilly', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Michael Douglas', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'J. K. Simmons', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Selena Gomez', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Paul Rudd', target: 'Jeremy Renner', rel: 'Worked with' },
+  { source: 'Prince William', target: 'King Charles III', rel: 'Is the son of' },
+  { source: 'Prince William', target: 'Princess Diana', rel: 'Is the son of' },
+  { source: 'Prince William', target: 'Kate Middleton', rel: 'Is Married to' },
+  { source: 'Prince William', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Prince William', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Prince William', target: 'Imran Khan', rel: 'Met' },
+  { source: 'Princess Diana', target: 'King Charles III', rel: 'Married to' },
+  { source: 'Princess Diana', target: 'Prince William', rel: 'Is the mother of' },
+  { source: 'Princess Diana', target: 'Queen Elizabeth II', rel: 'Is the daughter in law of' },
+  { source: 'Princess Diana', target: 'Bill Clinton', rel: 'Met' },
+  { source: 'Princess Diana', target: 'Nelson Mandela', rel: 'Met' },
+  { source: 'Priyanka Chopra Jones', target: 'Zac Efron', rel: 'Worked with' },
+  { source: 'Priyanka Chopra Jones', target: 'Dwayne Johnson', rel: 'Worked with' },
+  { source: 'Queen Elizabeth II', target: 'Andrew Mountbatten-Windsor', rel: 'Is the mother of' },
+  { source: 'Queen Elizabeth II', target: 'King Charles III', rel: 'Is the mother of' },
+  { source: 'Queen Elizabeth II', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Raheel Khan', target: 'Sheikh Mohammed Bin Rashid Al Maktoum', rel: 'Met' },
+  { source: 'Raheel Khan', target: 'Sheikh Hamdan Bin Rashid Al Maktoum', rel: 'Met' },
+  { source: 'Rainn Wilson', target: 'John Krasinski', rel: 'Worked with' },
+  { source: 'Rainn Wilson', target: 'Jenna Fischer', rel: 'Worked with' },
+  { source: 'Rainn Wilson', target: 'Mindy Kaling', rel: 'Worked with' },
+  { source: 'Rainn Wilson', target: 'B. J. Novak', rel: 'Worked with' },
+  { source: 'Ralph Fiennes', target: 'Daniel Radcliffe', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Anna Kendrick', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Hailee Stenfeld', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Liam Hemsworth', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Priyanka Chopra Jones', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Kristen Wiig', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Maya Rudolph', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Rose Byrne', rel: 'Worked with' },
+  { source: 'Rebel Wilson', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Robert Pattinson', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Matthew McConaughey', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Laura Dern', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Zoe Kravitz', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Jennifer Aniston', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Steve Carell', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Reese Witherspoon', target: 'Jessica Alba', rel: 'Met' },
+  { source: 'Reese Witherspoon', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Reese Witherspoon', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Reese Witherspoon', target: 'George Clooney', rel: 'Met' },
+  { source: 'Reese Witherspoon', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Reese Witherspoon', target: 'Amy Adams', rel: 'Met' },
+  { source: 'Reese Witherspoon', target: 'Kristen Bell', rel: 'Met' },
+  { source: 'Richard Attenborough', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Ricky Gervais', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Ricky Gervais', target: 'Robin Williams', rel: 'Worked with' },
+  { source: 'Ricky Gervais', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Rishabh Dhall', target: 'Tiger Shroff', rel: 'Met' },
+  { source: 'Rishi Sunak', target: 'Boris Johnson', rel: 'Met' },
+  { source: 'Rishi Sunak', target: 'King Charles III', rel: 'Met' },
+  { source: 'Rishi Sunak', target: 'Prince William', rel: 'Met' },
+  { source: 'Rishi Sunak', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Robert De Niro', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Jon Favreau', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Robert Downey Jr', target: 'Ben Stiller', rel: 'Met' },
+  { source: 'Robert Downey Jr', target: 'Jack Black', rel: 'Met' },
+  { source: 'Robert Downey Jr', target: 'Will Smith', rel: 'Met' },
+  { source: 'Robert Downey Jr', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Robert Pattinson', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Robert Zemeckis', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'Robert Zemeckis', target: 'Michael J Fox', rel: 'Worked with' },
+  { source: 'Robert Zemeckis', target: 'Christopher Lloyd', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Ben Stiller', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Ricky Gervais', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Matt Damon', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Ben Affleck', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Kirsten Dunst', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Danny DeVito', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Robert De Niro', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Elijah Wood', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Robin Williams', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Rose Byrne', target: 'Seth Rogen', rel: 'Worked with' },
+  { source: 'Rose Byrne', target: 'Mark Wahlberg', rel: 'Worked with' },
+  { source: 'Rose Byrne', target: 'Isabela Merced', rel: 'Worked with' },
+  { source: 'Rowan Atkinson', target: 'Sir Ian McKellen', rel: 'Met' },
+  { source: 'Rowan Atkinson', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'Rowan Atkinson', target: 'Prince William', rel: 'Met' },
+  { source: 'Rowan Atkinson', target: 'Sir David Attenborough', rel: 'Met' },
+  { source: 'Rupert Grint', target: 'Daniel Radcliffe', rel: 'Worked with' },
+  { source: 'Rupert Grint', target: 'Emma Watson', rel: 'Worked with' },
+  { source: 'Russell Crowe', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Russell Crowe', target: 'Aaron Taylor-Johnson', rel: 'Worked with' },
+  { source: 'Russell Crowe', target: 'Henry Cavill', rel: 'Worked with' },
+  { source: 'Russell Crowe', target: 'Laurence Fishburne', rel: 'Worked with' },
+  { source: 'Ryan Gosling', target: 'Emily Blunt', rel: 'Worked with' },
+  { source: 'Ryan Gosling', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Ryan Reynolds', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Ryan Reynolds', target: 'Dwayne Johnson', rel: 'Worked with' },
+  { source: 'Ryan Reynolds', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Ryan Reynolds', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Ryan Reynolds', target: 'Blake Lively', rel: 'Married to' },
+  { source: 'Ryan Reynolds', target: 'Taylor Swift', rel: 'Worked with' },
+  { source: 'Ryan Reynolds', target: 'Ed Sheeran', rel: 'Worked with' },
+  { source: 'Sacha Baron Cohen', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Sacha Baron Cohen', target: 'Antonio Banderas', rel: 'Worked with' },
+  { source: 'Sacha Baron Cohen', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Sacha Baron Cohen', target: 'Russell Crowe', rel: 'Worked with' },
+  { source: 'Sacha Baron Cohen', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Sacha Baron Cohen', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Sacha Baron Cohen', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Sacha Baron Cohen', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Sacha Baron Cohen', target: 'George W Bush', rel: 'Met' },
+  { source: 'Sacha Baron Cohen', target: 'Boris Johnson', rel: 'Met' },
+  { source: 'Sacha Baron Cohen', target: 'Justin Bieber', rel: 'Met' },
+  { source: 'Sacha Baron Cohen', target: 'Isla Fisher', rel: 'Married to' },
+  { source: 'Salma Hayek', target: 'Adam Sandler', rel: 'Worked with' },
+  { source: 'Salma Hayek', target: 'Antonio Banderas', rel: 'Worked with' },
+  { source: 'Salman Khan', target: 'Shah Rukh Khan', rel: 'Met' },
+  { source: 'Sam Altman', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Sam Altman', target: 'Mark Zuckerberg', rel: 'Met' },
+  { source: 'Sam Altman', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Sam Altman', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Sam Altman', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Sam Neill', target: 'Laura Dern', rel: 'Worked with' },
+  { source: 'Sam Neill', target: 'Jeff Goldblum', rel: 'Worked with' },
+  { source: 'Sam Neill', target: 'Richard Attenborough', rel: 'Worked with' },
+  { source: 'Sam Neill', target: 'Taika Waititi', rel: 'Worked with' },
+  { source: 'Sam Neill', target: 'Cillian Murphy', rel: 'Worked with' },
+  { source: 'Sam Neill', target: 'Steven Spielburg', rel: 'Worked with' },
+  { source: 'Sam Neill', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Sam Neill', target: 'James Corden', rel: 'Met' },
+  { source: 'Sam Neill', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'Sam Neill', target: 'Russell Crowe', rel: 'Met' },
+  { source: 'Sam Neill', target: 'Hugh Jackman', rel: 'Met' },
+  { source: 'Sam Raimi', target: 'Tobey Maguire', rel: 'Worked with' },
+  { source: 'Sam Raimi', target: 'Kirsten Dunst', rel: 'Worked with' },
+  { source: 'Sam Raimi', target: 'James Franco', rel: 'Worked with' },
+  { source: 'Sam Raimi', target: 'Willem Dafoe', rel: 'Worked with' },
+  { source: 'Sam Raimi', target: 'Benedict Cumberbatch', rel: 'Worked with' },
+  { source: 'Sam Raimi', target: 'Elizabeth Olsen', rel: 'Worked with' },
+  { source: 'Sam Raimi', target: 'Mila Kunis', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Elizabeth Olsen', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Benedict Cumberbatch', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Samuel L Jackson', target: 'Will Smith', rel: 'Met' },
+  { source: 'Samuel L Jackson', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Samuel L Jackson', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Samuel L Jackson', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Sarah Silverman', target: 'Jim Cummings', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Jeremy Renner', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Florence Pugh', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Bill Murray', rel: 'Worked with' },
+  { source: 'Scarlett Johansson', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'Jennifer Lawrence', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'George Clooney', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Scarlett Johansson', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Selena Gomez', target: 'Taylor Swift', rel: 'Met' },
+  { source: 'Selena Gomez', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Selena Gomez', target: 'Paul Rudd', rel: 'Met' },
+  { source: 'Selena Gomez', target: 'Cara Delevingne', rel: 'Met' },
+  { source: 'Selena Gomez', target: 'Justin Bieber', rel: 'Dated' },
+  { source: 'Seth MacFarlane', target: 'Mila Kunis', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'James Franco', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Dave Franco', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Michael Cera', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Jonah Hill', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Jason Segel', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Anna Kendrick', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Zac Efron', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Rose Byrne', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Chloë Grace Moretz', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Bill Hader', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'James Marsden', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Steve Carell', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Morgan Freeman', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Ryan Reynolds', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Sarah Silverman', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Matthew McConaughey', rel: 'Worked with' },
+  { source: 'Seth Rogen', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Seth Rogen', target: 'Jimmy Kimmel', rel: 'Met' },
+  { source: 'Seth Rogen', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Seth Rogen', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Shaan', target: 'Shah Rukh Khan', rel: 'Met' },
+  { source: 'Shah Rukh Khan', target: 'Amitabh Bacchan', rel: 'Met' },
+  { source: 'Shah Rukh Khan', target: 'Salman Khan', rel: 'Met' },
+  { source: 'Shakira', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Shakira', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Shakira', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Shakira', target: 'James Corden', rel: 'Met' },
+  { source: 'Shakira', target: 'Lionel Messi', rel: 'Met' },
+  { source: 'Shakira', target: 'Christiano Ronaldo', rel: 'Met' },
+  { source: 'Sheikh Hamdan Bin Rashid Al Maktoum', target: 'Sheikh Mohammed Bin Rashid Al Maktoum', rel: 'Is the son of' },
+  { source: 'Sheikh Hamdan Bin Rashid Al Maktoum', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Sheikh Hamdan Bin Rashid Al Maktoum', target: 'Mohammed Bin Salman', rel: 'Met' },
+  { source: 'Sheikh Hamdan Bin Rashid Al Maktoum', target: 'Christiano Ronaldo', rel: 'Met' },
+  { source: 'Sheikh Mohammed Bin Rashid Al Maktoum', target: 'Queen Elizabeth II', rel: 'Met' },
+  { source: 'Shia LaBeouf', target: 'Megan Fox', rel: 'Worked with' },
+  { source: 'Shia LaBeouf', target: 'Brad Pitt', rel: 'Worked with' },
+  { source: 'Shia LaBeouf', target: 'Tom Hardy', rel: 'Worked with' },
+  { source: 'Shia LaBeouf', target: 'Alec Baldwin', rel: 'Worked with' },
+  { source: 'Shia LaBeouf', target: 'Florence Pugh', rel: 'Worked with' },
+  { source: 'Sir David Attenborough', target: 'Prince William', rel: 'Met' },
+  { source: 'Sir David Attenborough', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Sir David Attenborough', target: 'King Charles III', rel: 'Met' },
+  { source: 'Sir David Attenborough', target: 'Rowan Atkinson', rel: 'Met' },
+  { source: 'Sir David Attenborough', target: 'Richard Attenborough', rel: 'Is the brother of' },
+  { source: 'Sir Ian McKellen', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Stan Lee', target: 'Robert Downey Jr', rel: 'Met' },
+  { source: 'Stanley Tucci', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Stanley Tucci', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'Stanley Tucci', target: 'Anne Hathaway', rel: 'Worked with' },
+  { source: 'Stanley Tucci', target: 'Meryl Streep', rel: 'Worked with' },
+  { source: 'Stanley Tucci', target: 'Emily Blunt', rel: 'Worked with' },
+  { source: 'Steve Buscemi', target: 'Martin Scorsese', rel: 'Worked with' },
+  { source: 'Steve Buscemi', target: 'Adam Sandler', rel: 'Worked with' },
+  { source: 'Steve Buscemi', target: 'Seth Rogen', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'John Krasinski', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'Ryan Gosling', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'Jenna Fischer', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'Rainn Wilson', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'Mindy Kaling', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'B. J. Novak', rel: 'Worked with' },
+  { source: 'Steve Carell', target: 'Emma Stone', rel: 'Worked with' },
+  { source: 'Steve Jobs', target: 'Bill Gates', rel: 'Met' },
+  { source: 'Steve Jobs', target: 'Mark Zuckerberg', rel: 'Met' },
+  { source: 'Steve Jobs', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Steven Spielburg', target: 'Steve Jobs', rel: 'Met' },
+  { source: 'Sultan Ahmed bin Sulayem', target: 'Jeffrey Epstein', rel: 'Met' },
+  { source: 'Taika Waititi', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Tom Hiddleston', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Cate Blanchett', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Jeff Goldblum', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Rebel Wilson', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Sam Neill', rel: 'Worked with' },
+  { source: 'Taika Waititi', target: 'Brad Pitt', rel: 'Met' },
+  { source: 'Taika Waititi', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Taika Waititi', target: 'Margot Robbie', rel: 'Met' },
+  { source: 'Tara Platt', target: 'Yuri Lowenthal', rel: 'Is Married to' },
+  { source: 'Tara Strong', target: 'Tom Kenny', rel: 'Met' },
+  { source: 'Tara Strong', target: 'Mark Hamill', rel: 'Met' },
+  { source: 'Tara Strong', target: 'Eric Bauza', rel: 'Met' },
+  { source: 'Tara Strong', target: 'Jack Black', rel: 'Met' },
+  { source: 'Tara Strong', target: 'Jim Carrey', rel: 'Met' },
+  { source: 'Taron Egerton', target: 'Elton John', rel: 'Met' },
+  { source: 'Taron Egerton', target: 'Samuel L Jackson', rel: 'Met' },
+  { source: 'Taylor Swift', target: 'Ed Sheeran', rel: 'Met' },
+  { source: 'Taylor Swift', target: 'Selena Gomez', rel: 'Met' },
+  { source: 'Taylor Swift', target: 'Ryan Reynolds', rel: 'Met' },
+  { source: 'Taylor Swift', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Taylor Swift', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Taylor Swift', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Tiger Shroff', target: 'Shah Rukh Khan', rel: 'Met' },
+  { source: 'Tim Burton', target: 'Johnny Depp', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Winona Ryder', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Michael Keaton', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Alec Baldwin', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Freddie Highmore', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Helena Bonham Carter', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Alan Rickman', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Christopher Lee', rel: 'Worked with' },
+  { source: 'Tim Burton', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Tim Burton', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Tim Burton', target: 'Meryl Streep', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Steve Jobs', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Mark Zuckerberg', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Elon Musk', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Oprah Winfrey', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Tim Cook', target: 'Drake', rel: 'Met' },
+  { source: 'Timothee Chalamet', target: 'Gwyneth Paltrow', rel: 'Worked with' },
+  { source: 'Tobey Maguire', target: 'Andrew Garfield', rel: 'Worked with' },
+  { source: 'Tom Cruise', target: 'Hayley Atwell', rel: 'Worked with' },
+  { source: 'Tom Cruise', target: 'Shakira', rel: 'Met' },
+  { source: 'Tom Cruise', target: 'Prince William', rel: 'Met' },
+  { source: 'Tom Cruise', target: 'Kate Middleton', rel: 'Met' },
+  { source: 'Tom Cruise', target: 'Princess Diana', rel: 'Met' },
+  { source: 'Tom Cruise', target: 'Ana De Armas', rel: 'Met' },
+  { source: 'Tom Cruise', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Tom Cruise', target: 'Harrison Ford', rel: 'Met' },
+  { source: 'Tom Hanks', target: 'Steven Spielburg', rel: 'Met' },
+  { source: 'Tom Hanks', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Tom Hanks', target: 'Robert Zemeckis', rel: 'Met' },
+  { source: 'Tom Hanks', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Tom Hanks', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Tom Hanks', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Tom Hardy', target: 'Christian Bale', rel: 'Worked with' },
+  { source: 'Tom Hardy', target: 'Leonardo Di Caprio', rel: 'Worked with' },
+  { source: 'Tom Hardy', target: 'Cillian Murphy', rel: 'Worked with' },
+  { source: 'Tom Hardy', target: 'Idris Elba', rel: 'Worked with' },
+  { source: 'Tom Hardy', target: 'Shia LaBeouf', rel: 'Worked with' },
+  { source: 'Tom Hardy', target: 'Gary Oldman', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Chris Hemsworth', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Mark Ruffalo', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Scarlett Johansson', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Chris Evans', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Jeremy Renner', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Samuel L Jackson', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Natalie Portman', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Paul Rudd', rel: 'Worked with' },
+  { source: 'Tom Hiddleston', target: 'Benedict Cumberbatch', rel: 'Worked with' },
+  { source: 'Tom Holland', target: 'Robert Downey Jr', rel: 'Worked with' },
+  { source: 'Tom Holland', target: 'Zendaya', rel: 'Worked with' },
+  { source: 'Tom Kenny', target: 'Mark Hamill', rel: 'Worked with' },
+  { source: 'Tom Kenny', target: 'Jim Cummings', rel: 'Met' },
+  { source: 'Tommy Lee Jones', target: 'Will Smith', rel: 'Worked with' },
+  { source: 'Vladimir Putin', target: 'Xi Jinping', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Benjamin Netanyahu', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Christiano Ronaldo', rel: 'Met' },
+  { source: 'Vladimir Putin', target: 'Lionel Messi', rel: 'Met' },
+  { source: 'Wes Anderson', target: 'Bill Murray', rel: 'Worked with' },
+  { source: 'Wes Anderson', target: 'Owen Wilson', rel: 'Worked with' },
+  { source: 'Wes Anderson', target: 'Adrien Brody', rel: 'Worked with' },
+  { source: 'Wes Anderson', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Wes Anderson', target: 'Willem Dafoe', rel: 'Worked with' },
+  { source: 'Wes Anderson', target: 'Jeff Goldblum', rel: 'Worked with' },
+  { source: 'Wes Anderson', target: 'Cate Blanchett', rel: 'Met' },
+  { source: 'Wes Anderson', target: 'Scarlett Johansson', rel: 'Met' },
+  { source: 'Will Arnett', target: 'Michael Cera', rel: 'Worked with' },
+  { source: 'Will Arnett', target: 'Channing Tatum', rel: 'Worked with' },
+  { source: 'Will Arnett', target: 'Jonah Hill', rel: 'Worked with' },
+  { source: 'Will Arnett', target: 'Zoe Kravitz', rel: 'Worked with' },
+  { source: 'Will Arnett', target: 'Conan O\'Brien', rel: 'Worked with' },
+  { source: 'Will Smith', target: 'Tom Holland', rel: 'Met' },
+  { source: 'Will Smith', target: 'Leonardo Di Caprio', rel: 'Met' },
+  { source: 'Will Smith', target: 'Tom Hanks', rel: 'Met' },
+  { source: 'Will Smith', target: 'Justin Bieber', rel: 'Met' },
+  { source: 'Will Smith', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Will Smith', target: 'Mohammed Bin Salman', rel: 'Met' },
+  { source: 'Willem Dafoe', target: 'Tobey Maguire', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Kirsten Dunst', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'James Franco', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Ralph Fiennes', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Adrien Brody', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Bill Murray', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Robert Pattinson', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Keanu Reeves', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Laurence Fishburne', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Sam Raimi', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Wes Anderson', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Rowan Atkinson', rel: 'Worked with' },
+  { source: 'Willem Dafoe', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Willem Dafoe', target: 'Conan O\'Brien', rel: 'Met' },
+  { source: 'Winona Ryder', target: 'David Harbour', rel: 'Worked with' },
+  { source: 'Woody Harrelson', target: 'Jesse Eisenberg', rel: 'Worked with' },
+  { source: 'Woody Harrelson', target: 'Isla Fisher', rel: 'Worked with' },
+  { source: 'Woody Harrelson', target: 'Dave Franco', rel: 'Worked with' },
+  { source: 'Woody Harrelson', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Woody Harrelson', target: 'Josh Hutcherson', rel: 'Worked with' },
+  { source: 'Xi Jinping', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Donald Trump', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Joe Biden', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Vladimir Putin', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Narendra Modi', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Imran Khan', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Justin Trudeau', rel: 'Met' },
+  { source: 'Xi Jinping', target: 'Jackie Chan', rel: 'Met' },
+  { source: 'Yuri Lowenthal', target: 'Tara Platt', rel: 'Is Married to' },
+  { source: 'Yuri Lowenthal', target: 'Greg Cipes', rel: 'Has Worked with' },
+  { source: 'Yuri Lowenthal', target: 'Eric Bauza', rel: 'Met' },
+  { source: 'Yuri Lowenthal', target: 'Tara Strong', rel: 'Met' },
+  { source: 'Zac Efron', target: 'Dwayne Johnson', rel: 'Worked with' },
+  { source: 'Zachary Levi', target: 'Mark Strong', rel: 'Worked with' },
+  { source: 'Zachary Levi', target: 'Henry Cavill', rel: 'Met' },
+  { source: 'Zachary Levi', target: 'Dwayne Johnson', rel: 'Met' },
+  { source: 'Zachary Levi', target: 'Gal Gadot', rel: 'Met' },
+  { source: 'Zachary Levi', target: 'Chris Hemsworth', rel: 'Met' },
+  { source: 'Zachary Levi', target: 'John Krasinski', rel: 'Met' },
+  { source: 'Zack Snyder', target: 'Gal Gadot', rel: 'Worked with' },
+  { source: 'Zack Snyder', target: 'Ben Affleck', rel: 'Worked with' },
+  { source: 'Zack Snyder', target: 'Henry Cavill', rel: 'Worked with' },
+  { source: 'Zack Snyder', target: 'Jason Momoa', rel: 'Worked with' },
+  { source: 'Zack Snyder', target: 'Willem Dafoe', rel: 'Worked with' },
+  { source: 'Zack Snyder', target: 'Jesse Eisenberg', rel: 'Worked with' },
+  { source: 'Zack Snyder', target: 'Amy Adams', rel: 'Worked with' },
+  { source: 'Zendaya', target: 'Zac Efron', rel: 'Worked with' },
+  { source: 'Zendaya', target: 'Tom Holland', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Chris Pine', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Robert Pattinson', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Meryl Streep', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Kirsten Dunst', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Taylor Swift', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Dave Franco', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Jennifer Lawrence', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Daniel Craig', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Tom Hardy', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Zendaya', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Hugh Jackman', rel: 'Worked with' },
+  { source: 'Zoe Kravitz', target: 'Barack Obama', rel: 'Met' },
+  { source: 'Zoe Kravitz', target: 'Jimmy Fallon', rel: 'Met' },
+  { source: 'Zoe Kravitz', target: 'Ellen DeGeneres', rel: 'Met' },
+  { source: 'Zoe Saldana', target: 'Chris Pratt', rel: 'Worked with' },
+  { source: 'Zoe Saldana', target: 'Tom Hanks', rel: 'Worked with' },
+  { source: 'Zooey Deschanel', target: 'Josh Hutcherson', rel: 'Worked with' },
+  { source: 'Zooey Deschanel', target: 'Anna Kendrick', rel: 'Worked with' },
+  { source: 'Zooey Deschanel', target: 'Justin Timberlake', rel: 'Worked with' },
+
+  { source: 'Irrfan Khan', target: 'Andrew Garfield', rel: 'Worked with' },
+  { source: 'Irrfan Khan', target: 'Chris Pratt', rel: 'Worked with' },
+
+  // Epstein connections — added alongside group overrides
+  { source: 'Bill Clinton', target: 'Jeffrey Epstein', rel: 'Met' },
+  { source: 'Michael Jackson', target: 'Jeffrey Epstein', rel: 'Met' },
+  { source: 'George Lucas', target: 'Jeffrey Epstein', rel: 'Met' },
+];
+
+
+    ///// — GRAPH ENGINE — /////
+    // Everything below here draws and runs the actual graph using D3.js
+    // Core reference: Bostock, M. Force-Directed Graph. Observable, 2023.
+    // https://observablehq.com/@d3/force-directed-graph/2
+
+
+    ///// 4. START /////
+
+    // startExperience() is called by the Start button on the intro screen
+    // It builds the graph first (while the intro still covers everything),
+    // then animates the intro away to reveal the already-rendered graph underneath
+    function startExperience() {
+
+      // buildGraph() runs here — 500 physics ticks happen on the main thread
+      // The intro screen is still visible during this so the user sees no blank flash
+      // Source: MDN. Main thread. https://developer.mozilla.org/en-US/docs/Glossary/Main_thread
+      buildGraph();
+
+      // Grab the intro container element so we can animate it away
+      const intro = document.getElementById('intro-container');
+
+      // Adding animate-out class triggers the CSS clip-path animation —
+      // the intro collapses to a dot at the centre, revealing the graph underneath
+      // The graph was always fully rendered; this just uncovers it
+      // Source: Argyle, Adam. transition.style. https://www.transition.style/#out:circle:center
+      intro.classList.add('animate-out');
+
+      // After 3.1 seconds the animation is done — remove the element from the DOM entirely
+      // so it doesn't block hover events on the graph behind it
+      // Source: MDN. setTimeout. https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
+      setTimeout(() => { intro.style.display = 'none'; }, 3100);
+
+      // Play the reveal audio at the exact same moment the animation starts
+      // catch(() => {}) silently handles browsers that block autoplay
+      // Source: MDN. HTMLAudioElement. https://developer.mozilla.org/en-US/docs/Web/API/HTMLAudioElement
+      const audio = new Audio("reveal.mp3");
+      audio.play().catch(() => {});
+    }
+
+
+    ///// 5. DEDUPLICATE NODES /////
+
+    // Some people appear multiple times in the NODES array — once in their general category
+    // and again at the bottom with an override group (Epstein list, etc.)
+    // A JavaScript Map automatically keeps only the last entry for each unique id key
+    // so the overrides at the bottom of the array always win — that's the whole point
+    // Source: MDN. Map. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+
+    const nodeMap = new Map(); // Create an empty Map to hold id → node object pairs
+    NODES.forEach(n => nodeMap.set(n.id, n)); // Add each node — duplicates overwrite earlier entries
+    const dedupedNodes = Array.from(nodeMap.values()); // Convert Map values back to a plain array
+
+
+    ///// 6. CONNECTION COUNT /////
+
+    // Count how many edges touch each node (as either source or target)
+    // This number drives node radius — more connections = bigger circle
+    // Source: Observable. d3-scale scaleSqrt. https://d3js.org/d3-scale#scaleSqrt
+
+    const connCount = new Map(); // Map from node id → total edge count
+    EDGES.forEach(e => {
+      connCount.set(e.source, (connCount.get(e.source) || 0) + 1); // Increment source node count
+      connCount.set(e.target, (connCount.get(e.target) || 0) + 1); // Increment target node count
+    });
+
+    // scaleSqrt makes the visual AREA of the circle proportional to the connection count
+    // (not the radius) — so Jimmy Fallon at 93 looks meaningfully bigger but not absurdly so
+    // domain is [0, highest connection count in the graph], range is [min radius, max radius]
+    // Source: Observable. d3-scale scaleSqrt. https://d3js.org/d3-scale#scaleSqrt
+    const maxConn = d3.max(dedupedNodes, d => connCount.get(d.id) || 0); // Find the highest count
+    const rScale = d3.scaleSqrt()
+      .domain([0, maxConn]) // Input: 0 connections up to the maximum
+      .range([2, 7]); // Output: radius in pixels — small enough for 309 nodes to breathe
+
+    // nodeR returns the radius for a given node —
+    // my node is always 14px so it clearly anchors the centre of the graph
+    function nodeR(d) {
+      if (d.id === "Ayaan Ahmed") return 14; // Fixed large radius — I am always the centre
+      return Math.max(2, rScale(connCount.get(d.id) || 0)); // Everyone else scales by connections
+    }
+
+
+    ///// 7. BUILD GRAPH /////
+
+    // buildGraph() creates the entire SVG visualization —
+    // the simulation, all edges, all nodes, hover logic, sliders, and zoom
+    // It runs once on Start and never again
+    function buildGraph() {
+
+      const W = window.innerWidth;  // Full browser window width in pixels
+      const H = window.innerHeight; // Full browser window height in pixels
+      const svg = d3.select("#svg"); // Select the <svg> element from the HTML
+      const g = svg.append("g");    // Append a <g> group inside the SVG — zoom/pan transforms go here
+
+
+      ///// ZOOM /////
+
+      // d3.zoom lets the user scroll to zoom and drag to pan the entire graph
+      // The transform is applied to the <g> container so all nodes and edges move together
+      // scaleExtent limits how far in and out you can zoom [min, max]
+      // Source: Bostock, M. d3-zoom. https://d3js.org/d3-zoom
+      const zoomBehavior = d3.zoom().scaleExtent([0.05, 10])
+        .on("zoom", event => g.attr("transform", event.transform)); // Apply zoom transform to the group
+      svg.call(zoomBehavior); // Attach zoom behaviour to the SVG element
+
+
+      ///// SIMULATION /////
+
+      // These variables hold the current slider values — they start at the defaults
+      // and get updated whenever the user moves a slider in the Forces panel
+      let centerVal   = 0.5;   // Strength of the force pulling all nodes toward the centre
+      let chargeVal   = -1200; // Repulsion between nodes — negative = push apart
+      let linkStrVal  = 0.05;  // How strongly edges pull their two nodes together
+      let linkDistVal = 400;   // How long each edge tries to be (in pixels)
+
+      // Find my node in the deduplicated array and pin it to the exact centre of the screen
+      // fx and fy are fixed positions in d3-force — pinned nodes ignore all physics forces
+      // Source: Bostock, M. d3-force. https://d3js.org/d3-force/simulation#simulation_nodes
+      const myNode = dedupedNodes.find(n => n.id === "Ayaan Ahmed");
+      if (myNode) { myNode.fx = W / 2; myNode.fy = H / 2; } // Lock my node to screen centre
+
+      // linkDist is a per-edge function that returns the target distance between two connected nodes
+      // My direct connections get 80px so they orbit visibly close to me
+      // All other edges use the global linkDistVal (default 400px — spread out)
+      // Source: Bostock, M. d3-force forceLink.distance. https://d3js.org/d3-force/link#link_distance
+      function linkDist(d) {
+        const s = d.source.id || d.source; // After simulation resolves strings to objects, use .id
+        const t = d.target.id || d.target; // Same for target
+        if (s === "Ayaan Ahmed" || t === "Ayaan Ahmed") return 80; // First-tier connections stay close
+        return linkDistVal; // Everyone else uses the slider value
+      }
+
+      // Set up the D3 force simulation with all five forces
+      // forceSimulation runs the physics engine that positions all 309 nodes
+      // Source: Bostock, M. d3-force simulation. https://d3js.org/d3-force/simulation
+      const simulation = d3.forceSimulation(dedupedNodes)
+        .force("link",    d3.forceLink(EDGES).id(d => d.id).distance(linkDist).strength(linkStrVal)) // Edge spring forces
+        .force("charge",  d3.forceManyBody().strength(chargeVal))  // Node-to-node repulsion
+        .force("x",       d3.forceX(W / 2).strength(centerVal))   // Pull toward horizontal centre
+        .force("y",       d3.forceY(H / 2).strength(centerVal))   // Pull toward vertical centre
+        .force("collide", d3.forceCollide().radius(d => nodeR(d) + 3)); // Stop nodes overlapping
+
+      // Stop the simulation immediately then run 500 ticks manually on the main thread
+      // This fully settles the layout before we draw anything — the intro covers this pause
+      // Without pre-ticking, all nodes would start piled on the centre and fly outward on load
+      // Source: Bostock, M. d3-force simulation.tick. https://d3js.org/d3-force/simulation#simulation_tick
+      simulation.stop(); // Pause the live sim
+      for (let i = 0; i < 500; i++) simulation.tick(); // Run 500 physics steps silently
+
+
+      ///// EDGES /////
+
+      // Draw all 1,620 edges as SVG <line> elements, positioned at their pre-computed coordinates
+      // join("line") creates one <line> per edge in the EDGES array
+      // Source: Bostock, M. d3-selection join. https://d3js.org/d3-selection/joining
+      const link = g.append("g") // Group for all edges — drawn first so nodes sit on top
+        .selectAll("line").data(EDGES).join("line") // One line per edge
+        .attr("stroke", "#444")         // Dark grey stroke — subtle, not dominant
+        .attr("stroke-width", 0.6)      // Thin line — 309 nodes means a lot of visual noise
+        .attr("stroke-opacity", 0.8)    // Slightly transparent
+        .attr("x1", d => d.source.x).attr("y1", d => d.source.y) // Start point from source node
+        .attr("x2", d => d.target.x).attr("y2", d => d.target.y); // End point from target node
+
+      // Edge labels — the relationship text (e.g. "Worked with", "Is married to")
+      // Hidden by default, toggled on by the Show Relationships button
+      // Positioned at the midpoint between source and target nodes
+      const edgeLabel = g.append("g")
+        .selectAll("text").data(EDGES).join("text") // One text element per edge
+        .attr("class", "elabel")        // CSS class handles font, size, display:none by default
+        .attr("text-anchor", "middle")  // Centre the text on the midpoint
+        .attr("x", d => (d.source.x + d.target.x) / 2) // Horizontal midpoint of the edge
+        .attr("y", d => (d.source.y + d.target.y) / 2) // Vertical midpoint of the edge
+        .text(d => d.rel);              // The relationship text from the EDGES array
+
+
+      ///// NODES /////
+
+      // Build an adjacency list for the tooltip — maps each node id to its outgoing connections
+      // This lets hover instantly look up who a node connects to without scanning all 1,620 edges
+      // Source: MDN. Map. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+      const clickAdj = new Map(); // Map from node id → array of { name, rel } objects
+      EDGES.forEach(e => {
+        const srcId = typeof e.source === 'object' ? e.source.id : e.source; // Handle both string and object form
+        const tgtId = typeof e.target === 'object' ? e.target.id : e.target; // D3 resolves strings to objects after sim starts
+        if (!clickAdj.has(srcId)) clickAdj.set(srcId, []); // Create empty array if first time seeing this node
+        clickAdj.get(srcId).push({ name: tgtId, rel: e.rel }); // Add this connection to the list
+      });
+
+      // Split nodes into two groups — regular nodes and my node
+      // My node gets drawn last so it sits on top of everything in SVG paint order
+      const regularNodes = dedupedNodes.filter(n => n.id !== "Ayaan Ahmed"); // Everyone else
+      const myNodeData   = dedupedNodes.filter(n => n.id === "Ayaan Ahmed"); // Just me — one node
+
+      // makeNodeGroup creates the SVG group for a set of nodes
+      // Each node is a <g> containing a <circle> and a <text> label
+      // isMe flag controls whether the stroke width is thicker (my node)
+      function makeNodeGroup(data, isMe) {
+        const grp = g.append("g")
+          .selectAll("g").data(data).join("g") // One <g> per node
+          .attr("class", "node-group")  // CSS class handles the opacity transition on hover
+          .style("cursor", "pointer")   // Show hand cursor so it's clear nodes are interactive
+          .call(
+            // Drag behaviour — lets users physically move nodes around the graph
+            // Source: Bostock, M. d3-drag. https://d3js.org/d3-drag
+            d3.drag()
+              .on("start", (ev, d) => {
+                if (!ev.active) simulation.alphaTarget(0.3).restart(); // Wake up the sim if it's settled
+                if (d.id !== "Ayaan Ahmed") { d.fx = d.x; d.fy = d.y; } // Lock node to its current position
+              })
+              .on("drag",  (ev, d) => { if (d.id !== "Ayaan Ahmed") { d.fx = ev.x; d.fy = ev.y; } }) // Move with mouse
+              .on("end",   (ev, d) => { if (!ev.active) simulation.alphaTarget(0); if (d.id !== "Ayaan Ahmed") { d.fx = null; d.fy = null; } }) // Release and let physics take over again
+          );
+
+        grp.append("circle")
+          .attr("r", d => nodeR(d))              // Radius from the scaleSqrt function above
+          .attr("fill", d => GROUPS[d.group].color) // Colour from the group palette
+          .attr("stroke", "#111")                // Dark border matches the page background
+          .attr("stroke-width", isMe ? 1.5 : 0.5); // My node gets a thicker border
+
+        grp.append("text")
+          .attr("class", d => d.id === "Ayaan Ahmed" ? "node-label node-label-me" : "node-label") // Different CSS class for my label
+          .attr("data-nid", d => d.id)  // Store node id on the element — used by hover to look up fill colour
+          .attr("text-anchor", "middle") // Centre text horizontally on the node
+          .attr("dy", d => nodeR(d) + 8) // Push label down below the circle edge
+          .text(d => d.id);              // The person's name
+
+        grp.attr("transform", d => `translate(${d.x},${d.y})`); // Move the group to its pre-ticked position
+        return grp; // Return the group so callers can attach hover events
+      }
+
+      // Draw all regular nodes (everyone except me) — they go into the SVG first
+      // Source: Bostock, M. d3-selection join. https://d3js.org/d3-selection/joining
+      const node = g.append("g").selectAll("g").data(regularNodes).join("g")
+        .attr("class", "node-group")
+        .style("cursor", "pointer")
+        .call(
+          d3.drag()
+            .on("start", (ev, d) => { if (!ev.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+            .on("drag",  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+            .on("end",   (ev, d) => { if (!ev.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+        );
+
+      node.append("circle") // Draw the circle for each regular node
+        .attr("r", d => nodeR(d))
+        .attr("fill", d => GROUPS[d.group].color)
+        .attr("stroke", "#111")
+        .attr("stroke-width", 0.5);
+
+      node.append("text") // Draw the name label for each regular node
+        .attr("class", "node-label")
+        .attr("data-nid", d => d.id)
+        .attr("text-anchor", "middle")
+        .attr("dy", d => nodeR(d) + 8)
+        .text(d => d.id);
+
+      // Draw my node last — SVG paints in document order so last = on top of everything
+      const myNodeGrp = makeNodeGroup(myNodeData, true);
+
+      // allNodes groups both selections so hover can act on both at once
+      const allNodes = [node, myNodeGrp];
+
+
+      ///// HOVER /////
+
+      // Source: Bostock, M. d3-selection events. https://d3js.org/d3-selection/events
+      const tooltip = d3.select("#tooltip"); // Select the tooltip div from the HTML
+
+      // applyHover fires when the mouse enters a node
+      // It dims everyone not connected to the hovered node and shows the tooltip
+      function applyHover(ev, d) {
+
+        // Build a set of all node ids connected to the hovered node (including itself)
+        const connectedIds = new Set([d.id]); // Start with the hovered node itself
+        EDGES.forEach(l => {
+          const sid = l.source.id || l.source; // Handle both string and resolved-object form
+          const tid = l.target.id || l.target;
+          if (sid === d.id) connectedIds.add(tid); // Add nodes this one connects to
+          if (tid === d.id) connectedIds.add(sid); // Add nodes that connect to this one
+        });
+
+        // Dim all nodes that aren't in the connected set to near-invisible
+        allNodes.forEach(grp => grp.style("opacity", n => connectedIds.has(n.id) ? 1 : 0.05));
+
+        // Highlight connected edges bright, dim everything else nearly invisible
+        link
+          .attr("stroke", l => {
+            const sid = l.source.id || l.source;
+            const tid = l.target.id || l.target;
+            return (sid === d.id || tid === d.id) ? "#bbb" : "#444"; // Bright grey vs dark grey
+          })
+          .attr("stroke-opacity", l => {
+            const sid = l.source.id || l.source;
+            const tid = l.target.id || l.target;
+            return (sid === d.id || tid === d.id) ? 1 : 0.04; // Full opacity vs nearly invisible
+          });
+
+        // Update all label fill colours — connected labels stay white, others go near-black
+        document.querySelectorAll("text[data-nid]").forEach(el => {
+          el.style.fill = connectedIds.has(el.getAttribute("data-nid")) ? "#fff" : "#181818";
+        });
+
+        // Populate the tooltip with this node's name, group label, and outgoing connections
+        const conns = clickAdj.get(d.id) || []; // Look up outgoing connections from adjacency list
+        document.getElementById("tt-name").textContent = d.id; // Person's name
+        document.getElementById("tt-name").style.color = GROUPS[d.group].color; // Coloured by group
+        document.getElementById("tt-group").textContent = GROUPS[d.group].label; // Group name text
+        document.getElementById("tt-links").innerHTML = conns.length
+          ? conns.map(c => `<span class="rel">${c.rel}</span> <span class="name">— ${c.name}</span>`).join("<br>") // List of connections
+          : "<span class='name'>No outgoing connections</span>"; // Fallback if no outgoing edges
+        tooltip.classed("visible", true); // Make tooltip visible (CSS handles opacity transition)
+      }
+
+      // clearHover fires when the mouse leaves a node — resets everything back to default
+      function clearHover() {
+        allNodes.forEach(grp => grp.style("opacity", 1)); // Restore all node opacities
+        link.attr("stroke", "#444").attr("stroke-opacity", 0.8); // Restore edge colours
+        document.querySelectorAll("text[data-nid]").forEach(el => { el.style.fill = "#fff"; }); // Restore label colours
+        tooltip.classed("visible", false); // Hide tooltip
+      }
+
+      // moveTooltip updates the tooltip position to follow the mouse
+      // It flips to the left of the cursor if the tooltip would overflow the right edge of the screen
+      function moveTooltip(ev) {
+        const x = ev.clientX + 18; // 18px offset so it doesn't sit directly on the cursor
+        const y = ev.clientY - 14; // Slight upward offset
+        tooltip
+          .style("left", (x + 260 > window.innerWidth ? ev.clientX - 270 : x) + "px") // Flip if near right edge
+          .style("top", y + "px");
+      }
+
+      // Attach hover events to all node groups
+      node.on("mouseover", applyHover).on("mousemove", moveTooltip).on("mouseout", clearHover);
+      myNodeGrp.on("mouseover", applyHover).on("mousemove", moveTooltip).on("mouseout", clearHover);
+
+      // Clicking anywhere on the SVG background dismisses the tooltip
+      svg.on("click", () => tooltip.classed("visible", false));
+
+
+      ///// TICK /////
+
+      // simulation.on("tick") fires after each physics step while the sim is running
+      // We update every edge endpoint and node position to match the new physics state
+      // Source: Bostock, M. d3-force simulation.on. https://d3js.org/d3-force/simulation#simulation_on
+      simulation.on("tick", () => {
+        link
+          .attr("x1", d => d.source.x).attr("y1", d => d.source.y) // Update edge start point
+          .attr("x2", d => d.target.x).attr("y2", d => d.target.y); // Update edge end point
+        edgeLabel
+          .attr("x", d => (d.source.x + d.target.x) / 2) // Keep label at edge midpoint
+          .attr("y", d => (d.source.y + d.target.y) / 2);
+        node.attr("transform", d => `translate(${d.x},${d.y})`);    // Move regular node groups
+        myNodeGrp.attr("transform", d => `translate(${d.x},${d.y})`); // Move my node group
+      });
+
+
+      ///// INITIAL ZOOM /////
+
+      // Set a starting zoom level so the graph fills the screen comfortably on load
+      // zoomIdentity creates a fresh transform, then we apply translation and scale
+      // initTx/initTy centre the zoom origin on the screen so the graph doesn't shift sideways
+      // Source: Bostock, M. d3-zoom transform. https://d3js.org/d3-zoom#zoomTransform
+      const initScale = 0.7; // Start slightly zoomed out so the full graph is visible
+      const initTx = W / 2 - initScale * (W / 2); // Horizontal offset to keep centre aligned
+      const initTy = H / 2 - initScale * (H / 2); // Vertical offset to keep centre aligned
+      svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(initTx, initTy).scale(initScale));
+
+      // Restart the sim at low alpha so it gently finishes settling after the pre-ticks
+      // Alpha 0.15 gives enough energy to drift to a natural resting position without chaos
+      // Source: Bostock, M. d3-force simulation.restart. https://d3js.org/d3-force/simulation#simulation_restart
+      simulation.alpha(0.15).restart();
+
+
+      ///// FORCE SLIDERS /////
+
+      // refreshSim applies the current slider values to the live simulation and warms it up
+      // Calling alpha(0.4).restart() gives the sim enough energy to respond to the new forces
+      // Source: Bostock, M. d3-force simulation. https://d3js.org/d3-force/simulation
+      function refreshSim() {
+        simulation.force("link").distance(linkDist).strength(linkStrVal); // Update link force
+        simulation.force("charge").strength(chargeVal); // Update repulsion force
+        simulation.force("x").strength(centerVal); // Update horizontal centre pull
+        simulation.force("y").strength(centerVal); // Update vertical centre pull
+        simulation.alpha(0.4).restart(); // Warm the sim up so it responds to the new values
+      }
+
+      // Each slider listens for the "input" event — fires on every drag movement, not just release
+      // Source: MDN. input event. https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/input_event
+      document.getElementById("s-center").addEventListener("input", function() {
+        centerVal = +this.value; // + converts the string value to a number
+        document.getElementById("v-center").textContent = centerVal; // Update the displayed value
+        refreshSim(); // Apply to simulation
+      });
+      document.getElementById("s-charge").addEventListener("input", function() {
+        chargeVal = +this.value;
+        document.getElementById("v-charge").textContent = chargeVal;
+        refreshSim();
+      });
+      document.getElementById("s-link").addEventListener("input", function() {
+        linkStrVal = +this.value;
+        document.getElementById("v-link").textContent = linkStrVal;
+        refreshSim();
+      });
+      document.getElementById("s-dist").addEventListener("input", function() {
+        linkDistVal = +this.value;
+        document.getElementById("v-dist").textContent = linkDistVal;
+        refreshSim();
+      });
+
+
+      ///// SHOW RELATIONSHIPS TOGGLE /////
+
+      // Tracks whether edge labels are currently visible — starts false (hidden)
+      let edgeLabelsVisible = false;
+
+      // Clicking the button flips the visibility and updates the button's active state
+      // Source: MDN. Element.classList. https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
+      document.getElementById("toggle-elabels").addEventListener("click", function() {
+        edgeLabelsVisible = !edgeLabelsVisible; // Flip the boolean
+        edgeLabel.classed("visible", edgeLabelsVisible); // Add or remove the 'visible' CSS class on all labels
+        this.classList.toggle("active", edgeLabelsVisible); // Update button appearance to match state
+      });
+
+    } // end buildGraph()
+
+
+    ///// 19. BUILD KEY PANEL /////
+
+    // Dynamically build the key grid from the GROUPS object
+    // This way the key always matches whatever groups are defined at the top of the file
+    const keyGrid = document.getElementById("key-grid"); // The div that holds the key items
+    const HIDE_FROM_KEY = new Set(["bollywood"]); // Bollywood shares the Celebrities colour — hide to avoid duplication
+
+    // Loop through every group and create a coloured dot + label for each visible one
+    // Source: MDN. Object.entries. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/entries
+    Object.entries(GROUPS).forEach(([k, v]) => {
+      if (HIDE_FROM_KEY.has(k)) return; // Skip hidden groups
+      keyGrid.innerHTML += `<div class="key-item"><div class="key-dot" style="background:${v.color}"></div>${v.label}</div>`; // Inject the dot and label HTML
+    });
+
+
+    ///// PANEL COLLAPSE TOGGLE /////
+
+    // togglePanel is called by the onclick on each panel title bar
+    // classList.toggle("collapsed") adds the class if absent, removes it if present
+    // The chevron text flips between ▲ and ▼ to show current state
+    // Source: MDN. Element.classList.toggle. https://developer.mozilla.org/en-US/docs/Web/API/DOMTokenList/toggle
+    function togglePanel(id) {
+      const panel = document.getElementById(id); // Find the panel by its HTML id
+      const isCollapsed = panel.classList.toggle("collapsed"); // Toggle the collapsed class and get the new state
+      panel.querySelector(".panel-chevron").textContent = isCollapsed ? "▼" : "▲"; // Update chevron direction
+    }
+
+    // Set the initial chevron state on page load — all panels start open so chevron points up
+    document.querySelectorAll(".panel").forEach(p => {
+      p.querySelector(".panel-chevron").textContent = "▲"; // ▲ = open/expanded
+    });
+  </script>
+</body>
+</html>
