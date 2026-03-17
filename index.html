@@ -3,43 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Favicon — stored locally in the same folder -->
-  <link rel="icon" type="image/png" href="small-world-favicon.png">
+  <link rel="icon" type="image/png" href="small-world-favicon.png"> <!-- A simple favicon I made using the S of Small & W of World -->
   <title>It's a Small World</title>
 
-  <!-- D3.js — the whole graph runs on this: nodes, edges, physics, zoom, drag, transitions -->
-  <!-- Bostock, Mike. D3.js. Observable, 2011. https://d3js.org -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script><!-- D3.js — the whole graph runs on this: nodes, edges, physics, zoom, drag, transitions, Bostock, Mike. D3.js. Observable, 2011. https://d3js.org-->
 
-  <!-- Manrope is a variable font — weights go from 200 to 800 continuously, no steps -->
-  <!-- That's what lets me use font weight as a typographic contrast tool on the labels -->
-  <!-- Primary: loaded from Google Fonts CDN. Fallback: local file in fonts/ folder -->
-  <!-- Toth, Miksa. Manrope. Google Fonts, 2018. https://fonts.google.com/specimen/Manrope -->
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet"> <!-- Manrope Font used throughout the site -->
 
   <style>
 
     /*////// FONTS //////*/
 
-    /* Lombard is the display font, used only for SMALL and WORLD on both screens */
-    /* It lives in the fonts/ folder right next to this file */
     @font-face {
       font-family: 'Lombard';
       src: url('fonts/Lombard-regular.otf') format('opentype');
     }
-
-    /* Manrope local fallback — if Google Fonts fails to load (no internet, CDN down etc.),
-       the browser falls back to this copy stored in the fonts/ folder.
-       The font-face name matches exactly so CSS font-family declarations need no changes. */
     @font-face {
       font-family: 'Manrope';
       src: url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');
       font-weight: 200 800;
       font-style: normal;
     }
-
-
-    /*////// BASE //////*/
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -53,7 +37,7 @@
 
     /*////// INTRO SCREEN //////*/
 
-    /* Covers the whole page on load — same pattern as Finite Grids, removed after Start */
+    /* Covers the whole page on load — same system as Finite Grids start screen, removed after Start button is clicked */
     #intro-container {
       position: fixed;
       width: 100vmax;
@@ -71,10 +55,8 @@
       backface-visibility: hidden;
     }
 
-    /* The intro sits on top. When Start is clicked, its clip-path collapses to a dot at centre,
-       revealing the graph underneath — which has always been there, fully rendered.
-       No graph-wrapper animation needed. No blank frame possible.
-       Source: Argyle, Adam. "transition.style — out:circle:center".
+    /* The intro sits on top. When Start is clicked, it transitions as a collapse to the dot at centre,
+       revealing the graph underneath. Source: Argyle, Adam. "transition.style — out:circle:center".
        https://www.transition.style/#out:circle:center */
     .animate-out {
       animation: circle-out 3s cubic-bezier(0.25, 1, 0.30, 1) forwards;
@@ -85,7 +67,6 @@
       to   { clip-path: circle(0%   at 50% 50%); }
     }
 
-    /* Graph wrapper — always fully visible, no clip needed */
     #graph-wrapper {
       position: fixed;
       inset: 0;
@@ -94,15 +75,15 @@
 
     /*////// INTRO TITLE BLOCK //////*/
 
-    /* The whole title is wrapped so the three pieces stay together as one unit */
+    /* This is like a grouped styling of the It's a & Small & World that make up the full title */
     .intro-title-block {
       display: flex;
       flex-direction: column;
       align-items: center;
-      /* clamp keeps the whole block from getting too tall on big monitors */
+      /* clamp keeps the whole block from getting too tall on big monitors, this was very annoying took a number of tries to get right because it worked differently on different screens */
     }
 
-    /* 'It's a' — noticeably smaller than Small World but same Lombard family */
+    /* 'It's a' — smaller than Small World but same Lombard family */
     .intro-top {
       font-family: 'Lombard', serif;
       font-size: clamp(24px, 5vw, 80px);
@@ -112,7 +93,7 @@
       margin-bottom: -0.1em;
     }
 
-    /* Small World — headline size, not full-window size */
+    /* Small World - styling for only the main large title text */
     .intro-display {
       font-family: 'Lombard', serif;
       font-size: clamp(72px, 16vw, 260px);
@@ -135,11 +116,11 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
       cursor: pointer;
-      transition: background 0.25s, border-color 0.25s, color 0.25s;
+      transition: background-color 0.25s, border-color 0.25s, color 0.25s;
     }
 
     .start-btn:hover { background: #fff; border-color: #fff; color: #111; }
-    .start-btn:active { transform: scale(0.95); background: #ddd; border-color: #ddd; color: #111; transition: transform 0.08s, background 0.08s; }
+    .start-btn:active { transform: scale(0.95); background: #ddd; border-color: #ddd; color: #111; transition: transform 0.08s, background-color 0.08s; }
 
 
     /*////// GRAPH //////*/
@@ -147,7 +128,7 @@
     #svg { width: 100vw; height: 100vh; display: block; }
 
 
-    /*////// PANELS //////*/
+    /*////// PANELS - Heavily based on what I saw on Obsidian and liked and wanted to implement into my D3JS graph //////*/
 
     /* Source: MDN. position fixed. https://developer.mozilla.org/en-US/docs/Web/CSS/position */
     #bottom-right {
@@ -164,7 +145,7 @@
       background: #1a1a1a;
       border: 1px solid #2a2a2a;
       border-radius: 10px;
-      width: 200px;
+      width: 220px;
     }
 
     /* Source: MDN. cursor. https://developer.mozilla.org/en-US/docs/Web/CSS/cursor */
@@ -187,7 +168,7 @@
     .panel.collapsed .panel-body { display: none; }
 
 
-    /* Show Relationships toggle button — sits at bottom of Key panel.
+    /* The 'show relationships' button, it was always there just hidden because it was getting excessive but I liked the idea of having it accessible to be shown if preferred since it's something I really wanted early on.
        Source: MDN. CSS :hover. https://developer.mozilla.org/en-US/docs/Web/CSS/:hover */
     .rel-btn {
       width: 100%;
@@ -202,15 +183,15 @@
       text-transform: uppercase;
       padding: 6px 0;
       cursor: pointer;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      transition: background-color 0.2s, color 0.2s, border-color 0.2s;
     }
-    .rel-btn:hover { background: #2a2a2a; color: #ccc; border-color: #555; }
+    .rel-btn:hover { background: #fff; color: #111; border-color: #fff; }
     .rel-btn.active { background: #fff; color: #111; border-color: #fff; }
     .rel-btn.active:hover { background: #ddd; border-color: #ddd; }
 
     /*////// KEY — two columns //////*/
 
-    /* CSS grid for two-column key layout */
+    /* I originally had the list of categories in the key as a single column but it became too long and overlapped onto too much of the graph so I split it into two */
     /* Source: MDN. CSS Grid Layout. https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout */
     #key-grid {
       display: grid;
@@ -225,7 +206,7 @@
       font-size: 9.5px;
       font-weight: 500;
       color: #fff;
-      white-space: nowrap; /* never wrap — Wizarding World was breaking to two lines */
+      white-space: nowrap; /* added this because Wizarding World was breaking to two lines */
       overflow: hidden;
     }
 
@@ -235,7 +216,6 @@
     /*////// FORCES SLIDERS //////*/
 
     /* Source: MDN. input type range. https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/range */
-
     .row { margin-bottom: 9px; }
     .row:last-child { margin-bottom: 0; }
 
@@ -243,13 +223,13 @@
       display: flex;
       justify-content: space-between;
       font-size: 10px;
-      font-weight: 500; /* medium weight — readable */
-      color: #fff; /* same readable colour as key labels, no dimming */
+      font-weight: 500; 
+      color: #fff; 
       margin-bottom: 4px;
     }
 
     .row label span {
-      font-weight: 700; /* bold value — contrast within the label itself */
+      font-weight: 700;
       color: #ddd;
     }
 
@@ -277,7 +257,7 @@
 
     /*////// HOVER TOOLTIP //////*/
 
-    /* Floats near the hovered node — Epstein Visualizer style */
+    /* Floats near the hovered node, sort of based on the Epstein Visualizer site I found */
     /* Source: D3 Graph Gallery. Tooltip. https://d3-graph-gallery.com/graph/interactivity_tooltip.html */
     #tooltip {
       position: fixed;
@@ -295,7 +275,6 @@
 
     #tooltip.visible { opacity: 1; }
 
-    /* Name — big and bold, coloured by group */
     #tt-name {
       font-size: 13px;
       font-weight: 700;
@@ -303,7 +282,7 @@
       margin-bottom: 1px;
     }
 
-    /* Group label — medium weight, not all-caps screaming, not dimmed */
+    /* styling for the group label */
     #tt-group {
       font-size: 10px;
       font-weight: 500;
@@ -311,24 +290,24 @@
       margin-bottom: 10px;
     }
 
-    /* Connection list — readable weight, no dim colour */
+    /* styling for the list of connections */
     #tt-links {
       font-size: 10px;
       font-weight: 400;
       line-height: 1.9;
-      color: #bbb; /* readable — not #444 which was nearly invisible */
+      color: #bbb;
       border-top: 1px solid #2a2a2a;
       padding-top: 9px;
       max-height: 180px;
       overflow-y: auto;
     }
 
-    /* Relationship type — bold so it reads first, then the name after the dash */
+    /* styling for the relationship type in the pop up window */
     #tt-links .rel  { font-weight: 700; color: #fff; }
     #tt-links .name { font-weight: 400; color: #bbb; }
 
 
-    /*////// ABOUT LINK — bottom left, visible but not competing with the graph //////*/
+    /*////// ABOUT LINK //////*/
 
     #bottom-left {
       position: fixed;
@@ -347,10 +326,45 @@
       border: 1px solid #2a2a2a;
       border-radius: 20px;
       padding: 6px 14px;
-      transition: background 0.25s, color 0.25s, border-color 0.25s;
+      transition: background-color 0.25s, color 0.25s, border-color 0.25s;
     }
 
     #about-link:hover, #join-link:hover { background: #fff; color: #111; border-color: #fff; }
+
+    /* Degree of separation line in tooltip */
+    #tt-degree {
+      font-size: 10px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    /*////// MOBILE OPTIMIZATION //////*/
+  
+    @media (max-width: 600px) {
+
+      /* Panels shrink so they don't overflow the screen */
+      .panel { width: 155px; }
+      .panel-title { font-size: 10px; padding: 10px 12px; }
+      .panel-body { padding: 0 10px 10px 10px; min-height: 0; }
+      .key-item { font-size: 8.5px; }
+      .key-dot { width: 6px; height: 6px; }
+      #key-grid { gap: 4px 8px; }
+      .row label { font-size: 9px; }
+      .rel-btn { font-size: 8px; padding: 5px 0; }
+
+      /* Bottom-right panel pair — tighter gap on mobile */
+      #bottom-right { gap: 6px; bottom: 12px; right: 12px; }
+
+      /* About + Join List — visible on mobile, smaller */
+      #bottom-left { bottom: 12px; left: 12px; gap: 6px; }
+      #about-link, #join-link {
+        font-size: 8px;
+        padding: 5px 10px;
+        letter-spacing: 0.07em;
+      }
+    }
+
 
 
     /*////// NODE GROUPS — smooth hover fade //////*/
@@ -358,7 +372,7 @@
       transition: opacity 0.25s ease;
     }
 
-    /*////// EDGE LABELS — hidden by default, toggled by Show Relationships //////*/
+    /*////// EDGE LABELS — hidden by default, toggled by 'Show Relationships' button //////*/
     .elabel {
       font-family: 'Manrope', sans-serif;
       font-size: 4.5px;
@@ -372,8 +386,6 @@
 
     /*////// NODE LABELS //////*/
 
-    /* All labels uniform weight — no hierarchy except my name which is bold */
-    /* Source: Toth, Miksa. Manrope. Google Fonts. https://fonts.google.com/specimen/Manrope */
     .node-label {      font-family: 'Manrope', sans-serif;
       font-size: 6px;
       font-weight: 500;
@@ -382,7 +394,7 @@
       user-select: none;
     }
 
-    /* My node only */
+    /* My node only - 'Ayaan Ahmed' node in the centre */
     .node-label-me {
       font-size: 9px;
       font-weight: 700;
@@ -393,7 +405,7 @@
 </head>
 <body>
 
-  <div id="intro-container">
+  <div id="intro-container"> <!-- div for the title screen, directly borrowed this from finite grids-->
     <div class="intro-title-block">
       <div class="intro-top">It's a</div>
       <div class="intro-display">Small<br>World</div>
@@ -401,17 +413,16 @@
     <button class="start-btn" onclick="startExperience()">Start</button>
   </div>
 
-  <!-- Hover tooltip — follows the mouse, pops up near each node on hover -->
-  <!-- Replaces the fixed top-right info panel — much more readable with 308 nodes -->
   <div id="tooltip">
     <div id="tt-name"></div>
     <div id="tt-group"></div>
+    <div id="tt-degree"></div>
     <div id="tt-links"></div>
   </div>
 
   <div id="bottom-left">
-    <a href="about.html" id="about-link">About</a>
-    <a href="https://www.linkedin.com/in/ayaanahmedofficial/" target="_blank" id="join-link">Join List</a>
+    <a href="about.html" id="about-link">About</a> <!-- about button to about page -->
+    <a href="https://www.linkedin.com/in/ayaanahmedofficial/" target="_blank" id="join-link">Join List</a> <!--join list button that comedically goes to my LinkedIn page -->
   </div>
 
   <!-- Key and Forces panels side by side, bottom-right -->
@@ -452,53 +463,41 @@
     <svg id="svg"></svg>
   </div>
 
-  <script>
+  <script> /// main functional javascript
 
     ///// 1. GROUPS /////
 
-    // Each group has a label and a colour sampled from a muted pastel post-it reference image
-    // The palette stays muted so when Centre Force clumps things together it blends, not clashes
-    // I had to expand the palette for all the new categories — still keeping everything in the same
-    // low-saturation warm/cool range, just more shades of it
+    // Each group has a label and a colour sampled from a muted pastel post-it reference image, though I had to expand the palette for all the new categories
 
-    // Muted palette but each group needs to be visually distinguishable from its neighbours
-    // Strategy: alternate warm/cool, vary lightness — no two adjacent groups share the same hue
-    // wizarding = clearly blue, batmen = warm taupe, leaders = deep slate, spidermen = dusty lilac
-    // starwars = warm straw, avengers = sage green — all still muted, all clearly different
-    const GROUPS = {
-      me:        { label: "Me",              color: "#d47a6f" }, // dusty coral — the only saturated one
-      family:    { label: "Family",          color: "#c2a99e" }, // muted rose
-      friends:   { label: "Friends",         color: "#e4c19b" }, // warm tan
-      work:      { label: "Work",            color: "#d8cdc4" }, // pale greige — lighter than directors
-      bollywood: { label: "Bollywood",       color: "#b0b0b0" }, // merged with celebs visually
-      musicians: { label: "Musicians",       color: "#c9b89a" }, // warm sand
-      football:  { label: "Football",        color: "#a8c0a0" }, // muted green — clearly greenish
-      showHosts: { label: "Show Hosts",      color: "#c8c8c8" }, // neutral mid-grey
-      knights:   { label: "Knights",         color: "#d4c890" }, // muted gold — distinctly yellow
-      directors: { label: "Directors",       color: "#a09888" }, // cool greige — darker than work
-      office:    { label: "The Office",      color: "#b8d0b8" }, // pale sage — noticeably lighter green
-      wizarding: { label: "Wizarding World", color: "#8898b8" }, // medium blue — clearly blue
-      spidermen: { label: "Spidermen",       color: "#c0a8c8" }, // dusty lilac — warm purple
-      batmen:    { label: "Batmen",          color: "#c0a888" }, // warm taupe — clearly brownish
-      avengers:  { label: "The Avengers",    color: "#98b898" }, // medium sage — clearly green, darker than office
-      starwars:  { label: "Star Wars",       color: "#c8b880" }, // warm straw — clearly warm/yellow-ish
-      celebs:    { label: "Celebrities",     color: "#b0b0b0" }, // neutral grey
-      leaders:   { label: "World Leaders",   color: "#6888a0" }, // deep cool slate — clearly darker/cooler than wizarding
-      epstein:   { label: "Epstein List",    color: "#8a5359" }, // dark muted rose-red — intentionally off
+    const GROUPS = { /// this is an 'array', it holds a list of information that can be referenced by a javascript function later, this one holds the categories, their labels more gramatically correct to display, and the color key they use in hexadecimal.
+      me:        { label: "Me",              color: "#d47a6f" }, 
+      family:    { label: "Family",          color: "#c2a99e" }, 
+      friends:   { label: "Friends",         color: "#e4c19b" }, 
+      work:      { label: "Work",            color: "#d8cdc4" }, 
+      bollywood: { label: "Bollywood",       color: "#b0b0b0" }, 
+      musicians: { label: "Musicians",       color: "#c9b89a" }, 
+      football:  { label: "Football",        color: "#a8c0a0" }, 
+      showHosts: { label: "Show Hosts",      color: "#c8c8c8" }, 
+      knights:   { label: "Knights",         color: "#d4c890" }, 
+      directors: { label: "Directors",       color: "#a09888" }, 
+      office:    { label: "The Office",      color: "#b8d0b8" }, 
+      wizarding: { label: "Wizarding World", color: "#8898b8" }, 
+      spidermen: { label: "Spidermen",       color: "#c0a8c8" }, 
+      batmen:    { label: "Batmen",          color: "#c0a888" }, 
+      avengers:  { label: "The Avengers",    color: "#98b898" }, 
+      starwars:  { label: "Star Wars",       color: "#c8b880" }, 
+      celebs:    { label: "Celebrities",     color: "#b0b0b0" },
+      leaders:   { label: "World Leaders",   color: "#6888a0" }, 
+      epstein:   { label: "Epstein List",    color: "#8a5359" }, 
     };
 
 
     ///// 2. NODES /////
 
     // 308 people, one line each
-    // Group assignments come from my Python parser — it read all 306 markdown files
-    // and applied the priority order: epstein > me > family > friends > work > avengers
-    // > starwars > batmen > spidermen > wizarding > office > directors > knights
-    // > showHosts > football > musicians > bollywood > leaders > celebs (fallback)
-    // epstein is the HIGHEST priority — it overrides everything including world leaders
-    // Anyone directly connected to Epstein gets that group regardless of other categories
-    // Lower in the list = lower priority = gets overridden by anything above it
+    // Anyone directly connected to Epstein gets that group regardless of other categories, just cuz otherwise it would be pointless
 
+    // The format is like id: [name of person] then which category they fit into
     const NODES = [
   { id: 'Aaron Taylor-Johnson', group: 'celebs' },
   { id: 'Adam Driver', group: 'starwars' },
@@ -808,12 +807,8 @@
   { id: 'Zoe Kravitz', group: 'celebs' },
   { id: 'Zoe Saldana', group: 'avengers' },
   { id: 'Zooey Deschanel', group: 'celebs' },    
-
   { id: 'Irrfan Khan', group: 'family' },
-
-  // Epstein override — must come LAST so it wins in the dedup Map
-  // Anyone who has a direct connection to Epstein gets this group regardless of other categories
-  // Donald Trump appears earlier as 'leaders' — this entry overrides that
+  // Epstein override — comes at the end because javascript works line by line so the last line in the array is applied over everything else
   { id: 'Donald Trump', group: 'epstein' },
   { id: 'Bill Clinton', group: 'epstein' },
   { id: 'Michael Jackson', group: 'epstein' },
@@ -823,11 +818,7 @@
 
     ///// 3. EDGES /////
 
-    // 1615 connections parsed directly from the markdown files
-    // Each edge is source → target with the relationship text from the file
-    // Duplicates were removed in the parser — if two files both mention the same connection,
-    // only the first occurrence is kept
-
+    // 1615 connections, each line on the graph corresponds to a line of code here
     const EDGES = [
   { source: 'Aaron Taylor-Johnson', target: 'Chloë Grace Moretz', rel: 'Worked with' },
   { source: 'Aaron Taylor-Johnson', target: 'Elizabeth Olsen', rel: 'Worked with' },
@@ -2444,11 +2435,8 @@
   { source: 'Zooey Deschanel', target: 'Josh Hutcherson', rel: 'Worked with' },
   { source: 'Zooey Deschanel', target: 'Anna Kendrick', rel: 'Worked with' },
   { source: 'Zooey Deschanel', target: 'Justin Timberlake', rel: 'Worked with' },
-
   { source: 'Irrfan Khan', target: 'Andrew Garfield', rel: 'Worked with' },
   { source: 'Irrfan Khan', target: 'Chris Pratt', rel: 'Worked with' },
-
-  // Epstein connections — added alongside group overrides
   { source: 'Bill Clinton', target: 'Jeffrey Epstein', rel: 'Met' },
   { source: 'Michael Jackson', target: 'Jeffrey Epstein', rel: 'Met' },
   { source: 'George Lucas', target: 'Jeffrey Epstein', rel: 'Met' },
@@ -2457,38 +2445,24 @@
 
     ///// — GRAPH ENGINE — /////
     // Everything below here draws and runs the actual graph using D3.js
-    // Core reference: Bostock, M. Force-Directed Graph. Observable, 2023.
-    // https://observablehq.com/@d3/force-directed-graph/2
+    // Core reference: Bostock, M. Force-Directed Graph. Observable, 2023. https://observablehq.com/@d3/force-directed-graph/2
 
 
     ///// 4. START /////
-
-    // startExperience() is called by the Start button on the intro screen
-    // It builds the graph first (while the intro still covers everything),
-    // then animates the intro away to reveal the already-rendered graph underneath
     function startExperience() {
 
-      // buildGraph() runs here — 500 physics ticks happen on the main thread
-      // The intro screen is still visible during this so the user sees no blank flash
       // Source: MDN. Main thread. https://developer.mozilla.org/en-US/docs/Glossary/Main_thread
       buildGraph();
 
-      // Grab the intro container element so we can animate it away
       const intro = document.getElementById('intro-container');
 
-      // Adding animate-out class triggers the CSS clip-path animation —
-      // the intro collapses to a dot at the centre, revealing the graph underneath
-      // The graph was always fully rendered; this just uncovers it
-      // Source: Argyle, Adam. transition.style. https://www.transition.style/#out:circle:center
+      // Source: Argyle, Adam. transition.style. https://www.transition.style/#out:circle:center (this is the same site i got the finite grids transition)
       intro.classList.add('animate-out');
 
-      // After 3.1 seconds the animation is done — remove the element from the DOM entirely
-      // so it doesn't block hover events on the graph behind it
       // Source: MDN. setTimeout. https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
       setTimeout(() => { intro.style.display = 'none'; }, 3100);
 
-      // Play the reveal audio at the exact same moment the animation starts
-      // catch(() => {}) silently handles browsers that block autoplay
+      // Plays the Among us sound effect at the exact same moment the animation starts
       // Source: MDN. HTMLAudioElement. https://developer.mozilla.org/en-US/docs/Web/API/HTMLAudioElement
       const audio = new Audio("reveal.mp3");
       audio.play().catch(() => {});
@@ -2498,194 +2472,179 @@
     ///// 5. DEDUPLICATE NODES /////
 
     // Some people appear multiple times in the NODES array — once in their general category
-    // and again at the bottom with an override group (Epstein list, etc.)
-    // A JavaScript Map automatically keeps only the last entry for each unique id key
-    // so the overrides at the bottom of the array always win — that's the whole point
     // Source: MDN. Map. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 
-    const nodeMap = new Map(); // Create an empty Map to hold id → node object pairs
-    NODES.forEach(n => nodeMap.set(n.id, n)); // Add each node — duplicates overwrite earlier entries
-    const dedupedNodes = Array.from(nodeMap.values()); // Convert Map values back to a plain array
+    const nodeMap = new Map(); // Creates an empty Map to hold id
+    NODES.forEach(n => nodeMap.set(n.id, n)); // Adds each node, duplicates overwrite earlier entries
+    const dedupedNodes = Array.from(nodeMap.values());
 
 
     ///// 6. CONNECTION COUNT /////
 
-    // Count how many edges touch each node (as either source or target)
-    // This number drives node radius — more connections = bigger circle
     // Source: Observable. d3-scale scaleSqrt. https://d3js.org/d3-scale#scaleSqrt
-
-    const connCount = new Map(); // Map from node id → total edge count
+    const connCount = new Map();
     EDGES.forEach(e => {
-      connCount.set(e.source, (connCount.get(e.source) || 0) + 1); // Increment source node count
-      connCount.set(e.target, (connCount.get(e.target) || 0) + 1); // Increment target node count
+      connCount.set(e.source, (connCount.get(e.source) || 0) + 1); 
+      connCount.set(e.target, (connCount.get(e.target) || 0) + 1);
     });
 
-    // scaleSqrt makes the visual AREA of the circle proportional to the connection count
-    // (not the radius) — so Jimmy Fallon at 93 looks meaningfully bigger but not absurdly so
-    // domain is [0, highest connection count in the graph], range is [min radius, max radius]
     // Source: Observable. d3-scale scaleSqrt. https://d3js.org/d3-scale#scaleSqrt
     const maxConn = d3.max(dedupedNodes, d => connCount.get(d.id) || 0); // Find the highest count
     const rScale = d3.scaleSqrt()
-      .domain([0, maxConn]) // Input: 0 connections up to the maximum
-      .range([2, 7]); // Output: radius in pixels — small enough for 309 nodes to breathe
+      .domain([0, maxConn]) 
+      .range([2, 7]);
 
-    // nodeR returns the radius for a given node —
+    
     // my node is always 14px so it clearly anchors the centre of the graph
     function nodeR(d) {
-      if (d.id === "Ayaan Ahmed") return 14; // Fixed large radius — I am always the centre
-      return Math.max(2, rScale(connCount.get(d.id) || 0)); // Everyone else scales by connections
+      if (d.id === "Ayaan Ahmed") return 14; // Fixed large radius only for my node which is always in the centre
+      return Math.max(2, rScale(connCount.get(d.id) || 0));
     }
 
 
     ///// 7. BUILD GRAPH /////
 
-    // buildGraph() creates the entire SVG visualization —
-    // the simulation, all edges, all nodes, hover logic, sliders, and zoom
-    // It runs once on Start and never again
+    // buildGraph() creates the entire SVG visualization
     function buildGraph() {
+      const bfsAdj = new Map();
+      EDGES.forEach(e => {
+        const s = e.source, t = e.target;
+        if (!bfsAdj.has(s)) bfsAdj.set(s, []);
+        if (!bfsAdj.has(t)) bfsAdj.set(t, []);
+        bfsAdj.get(s).push(t);
+        bfsAdj.get(t).push(s);
+      });
+      const degreeMap = new Map();
+      degreeMap.set("Ayaan Ahmed", 0);
+      const bfsQ = ["Ayaan Ahmed"];
+      while (bfsQ.length) {
+        const cur = bfsQ.shift();
+        (bfsAdj.get(cur) || []).forEach(nb => {
+          if (!degreeMap.has(nb)) { degreeMap.set(nb, degreeMap.get(cur) + 1); bfsQ.push(nb); }
+        });
+      }
+      const ordinals = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th"];
 
-      const W = window.innerWidth;  // Full browser window width in pixels
-      const H = window.innerHeight; // Full browser window height in pixels
-      const svg = d3.select("#svg"); // Select the <svg> element from the HTML
-      const g = svg.append("g");    // Append a <g> group inside the SVG — zoom/pan transforms go here
+      const W = window.innerWidth; 
+      const H = window.innerHeight; 
+      const svg = d3.select("#svg"); 
+      const g = svg.append("g");   
 
 
       ///// ZOOM /////
 
       // d3.zoom lets the user scroll to zoom and drag to pan the entire graph
-      // The transform is applied to the <g> container so all nodes and edges move together
-      // scaleExtent limits how far in and out you can zoom [min, max]
       // Source: Bostock, M. d3-zoom. https://d3js.org/d3-zoom
       const zoomBehavior = d3.zoom().scaleExtent([0.05, 10])
-        .on("zoom", event => g.attr("transform", event.transform)); // Apply zoom transform to the group
-      svg.call(zoomBehavior); // Attach zoom behaviour to the SVG element
+        .on("zoom", event => g.attr("transform", event.transform)); 
+      svg.call(zoomBehavior); 
 
 
-      ///// SIMULATION /////
+      ///// SLIDERS /////
 
-      // These variables hold the current slider values — they start at the defaults
-      // and get updated whenever the user moves a slider in the Forces panel
+      // I visually tested which force slider options work the best and chose these as the default the site starts out with
       let centerVal   = 0.5;   // Strength of the force pulling all nodes toward the centre
-      let chargeVal   = -1200; // Repulsion between nodes — negative = push apart
+      let chargeVal   = -1200; // Repulsion between nodes
       let linkStrVal  = 0.05;  // How strongly edges pull their two nodes together
-      let linkDistVal = 400;   // How long each edge tries to be (in pixels)
+      let linkDistVal = 400;   // How long each connector line tries to be
 
-      // Find my node in the deduplicated array and pin it to the exact centre of the screen
-      // fx and fy are fixed positions in d3-force — pinned nodes ignore all physics forces
+      // Find my node in the array and pin it to the exact centre of the screen
       // Source: Bostock, M. d3-force. https://d3js.org/d3-force/simulation#simulation_nodes
       const myNode = dedupedNodes.find(n => n.id === "Ayaan Ahmed");
-      if (myNode) { myNode.fx = W / 2; myNode.fy = H / 2; } // Lock my node to screen centre
+      if (myNode) { myNode.fx = W / 2; myNode.fy = H / 2; } // Locks my node to screen centre
 
-      // linkDist is a per-edge function that returns the target distance between two connected nodes
-      // My direct connections get 80px so they orbit visibly close to me
-      // All other edges use the global linkDistVal (default 400px — spread out)
       // Source: Bostock, M. d3-force forceLink.distance. https://d3js.org/d3-force/link#link_distance
       function linkDist(d) {
-        const s = d.source.id || d.source; // After simulation resolves strings to objects, use .id
-        const t = d.target.id || d.target; // Same for target
-        if (s === "Ayaan Ahmed" || t === "Ayaan Ahmed") return 80; // First-tier connections stay close
-        return linkDistVal; // Everyone else uses the slider value
+        const s = d.source.id || d.source; 
+        const t = d.target.id || d.target; 
+        if (s === "Ayaan Ahmed" || t === "Ayaan Ahmed") return 80;
+        return linkDistVal; 
       }
 
-      // Set up the D3 force simulation with all five forces
-      // forceSimulation runs the physics engine that positions all 309 nodes
       // Source: Bostock, M. d3-force simulation. https://d3js.org/d3-force/simulation
       const simulation = d3.forceSimulation(dedupedNodes)
-        .force("link",    d3.forceLink(EDGES).id(d => d.id).distance(linkDist).strength(linkStrVal)) // Edge spring forces
-        .force("charge",  d3.forceManyBody().strength(chargeVal))  // Node-to-node repulsion
-        .force("x",       d3.forceX(W / 2).strength(centerVal))   // Pull toward horizontal centre
-        .force("y",       d3.forceY(H / 2).strength(centerVal))   // Pull toward vertical centre
-        .force("collide", d3.forceCollide().radius(d => nodeR(d) + 3)); // Stop nodes overlapping
+        .force("link",    d3.forceLink(EDGES).id(d => d.id).distance(linkDist).strength(linkStrVal)) 
+        .force("charge",  d3.forceManyBody().strength(chargeVal)) 
+        .force("x",       d3.forceX(W / 2).strength(centerVal))  
+        .force("y",       d3.forceY(H / 2).strength(centerVal))  
+        .force("collide", d3.forceCollide().radius(d => nodeR(d) + 3)); // Stops nodes from overlapping, doesn't work the best though probably because it doesnt sense the fluctuating texts synced to the nodes.
 
-      // Stop the simulation immediately then run 500 ticks manually on the main thread
-      // This fully settles the layout before we draw anything — the intro covers this pause
-      // Without pre-ticking, all nodes would start piled on the centre and fly outward on load
       // Source: Bostock, M. d3-force simulation.tick. https://d3js.org/d3-force/simulation#simulation_tick
       simulation.stop(); // Pause the live sim
-      for (let i = 0; i < 500; i++) simulation.tick(); // Run 500 physics steps silently
+      for (let i = 0; i < 500; i++) simulation.tick();
 
 
-      ///// EDGES /////
+      ///// RELATIONSHIP CONNECTORS /////
 
-      // Draw all 1,620 edges as SVG <line> elements, positioned at their pre-computed coordinates
-      // join("line") creates one <line> per edge in the EDGES array
+      // Draw all 1,620 connector lines
       // Source: Bostock, M. d3-selection join. https://d3js.org/d3-selection/joining
-      const link = g.append("g") // Group for all edges — drawn first so nodes sit on top
-        .selectAll("line").data(EDGES).join("line") // One line per edge
-        .attr("stroke", "#444")         // Dark grey stroke — subtle, not dominant
-        .attr("stroke-width", 0.6)      // Thin line — 309 nodes means a lot of visual noise
-        .attr("stroke-opacity", 0.8)    // Slightly transparent
-        .attr("x1", d => d.source.x).attr("y1", d => d.source.y) // Start point from source node
-        .attr("x2", d => d.target.x).attr("y2", d => d.target.y); // End point from target node
+      const link = g.append("g") 
+        .selectAll("line").data(EDGES).join("line") 
+        .attr("stroke", "#444")        
+        .attr("stroke-width", 0.6)     
+        .attr("stroke-opacity", 0.8)  
+        .attr("x1", d => d.source.x).attr("y1", d => d.source.y) 
+        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
 
-      // Edge labels — the relationship text (e.g. "Worked with", "Is married to")
-      // Hidden by default, toggled on by the Show Relationships button
-      // Positioned at the midpoint between source and target nodes
+      // Edge labels — the relationship text (e.g. "Worked with", "met")
       const edgeLabel = g.append("g")
-        .selectAll("text").data(EDGES).join("text") // One text element per edge
-        .attr("class", "elabel")        // CSS class handles font, size, display:none by default
-        .attr("text-anchor", "middle")  // Centre the text on the midpoint
-        .attr("x", d => (d.source.x + d.target.x) / 2) // Horizontal midpoint of the edge
-        .attr("y", d => (d.source.y + d.target.y) / 2) // Vertical midpoint of the edge
-        .text(d => d.rel);              // The relationship text from the EDGES array
+        .selectAll("text").data(EDGES).join("text") 
+        .attr("class", "elabel")       
+        .attr("text-anchor", "middle") 
+        .attr("x", d => (d.source.x + d.target.x) / 2) 
+        .attr("y", d => (d.source.y + d.target.y) / 2)
+        .text(d => d.rel); 
 
 
       ///// NODES /////
 
-      // Build an adjacency list for the tooltip — maps each node id to its outgoing connections
-      // This lets hover instantly look up who a node connects to without scanning all 1,620 edges
+      // This lets hover instantly look up who a node connects to without scanning all 1,620 connector lines
       // Source: MDN. Map. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
       const clickAdj = new Map(); // Map from node id → array of { name, rel } objects
       EDGES.forEach(e => {
-        const srcId = typeof e.source === 'object' ? e.source.id : e.source; // Handle both string and object form
-        const tgtId = typeof e.target === 'object' ? e.target.id : e.target; // D3 resolves strings to objects after sim starts
-        if (!clickAdj.has(srcId)) clickAdj.set(srcId, []); // Create empty array if first time seeing this node
-        clickAdj.get(srcId).push({ name: tgtId, rel: e.rel }); // Add this connection to the list
+        const srcId = typeof e.source === 'object' ? e.source.id : e.source; 
+        const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+        if (!clickAdj.has(srcId)) clickAdj.set(srcId, []); 
+        clickAdj.get(srcId).push({ name: tgtId, rel: e.rel }); 
       });
 
-      // Split nodes into two groups — regular nodes and my node
-      // My node gets drawn last so it sits on top of everything in SVG paint order
-      const regularNodes = dedupedNodes.filter(n => n.id !== "Ayaan Ahmed"); // Everyone else
-      const myNodeData   = dedupedNodes.filter(n => n.id === "Ayaan Ahmed"); // Just me — one node
+      const regularNodes = dedupedNodes.filter(n => n.id !== "Ayaan Ahmed"); 
+      const myNodeData   = dedupedNodes.filter(n => n.id === "Ayaan Ahmed"); 
 
-      // makeNodeGroup creates the SVG group for a set of nodes
-      // Each node is a <g> containing a <circle> and a <text> label
-      // isMe flag controls whether the stroke width is thicker (my node)
       function makeNodeGroup(data, isMe) {
         const grp = g.append("g")
-          .selectAll("g").data(data).join("g") // One <g> per node
-          .attr("class", "node-group")  // CSS class handles the opacity transition on hover
-          .style("cursor", "pointer")   // Show hand cursor so it's clear nodes are interactive
+          .selectAll("g").data(data).join("g") 
+          .attr("class", "node-group")
+          .style("cursor", "pointer")  
           .call(
-            // Drag behaviour — lets users physically move nodes around the graph
+            // Drag behaviour like Obsidian, lets users physically move nodes around the graph, it's one of the fun interactive things
             // Source: Bostock, M. d3-drag. https://d3js.org/d3-drag
             d3.drag()
               .on("start", (ev, d) => {
-                if (!ev.active) simulation.alphaTarget(0.3).restart(); // Wake up the sim if it's settled
-                if (d.id !== "Ayaan Ahmed") { d.fx = d.x; d.fy = d.y; } // Lock node to its current position
+                if (!ev.active) simulation.alphaTarget(0.3).restart();
+                if (d.id !== "Ayaan Ahmed") { d.fx = d.x; d.fy = d.y; } 
               })
               .on("drag",  (ev, d) => { if (d.id !== "Ayaan Ahmed") { d.fx = ev.x; d.fy = ev.y; } }) // Move with mouse
-              .on("end",   (ev, d) => { if (!ev.active) simulation.alphaTarget(0); if (d.id !== "Ayaan Ahmed") { d.fx = null; d.fy = null; } }) // Release and let physics take over again
+              .on("end",   (ev, d) => { if (!ev.active) simulation.alphaTarget(0); if (d.id !== "Ayaan Ahmed") { d.fx = null; d.fy = null; } }) 
           );
 
         grp.append("circle")
-          .attr("r", d => nodeR(d))              // Radius from the scaleSqrt function above
-          .attr("fill", d => GROUPS[d.group].color) // Colour from the group palette
-          .attr("stroke", "#111")                // Dark border matches the page background
-          .attr("stroke-width", isMe ? 1.5 : 0.5); // My node gets a thicker border
+          .attr("r", d => nodeR(d)) 
+          .attr("fill", d => GROUPS[d.group].color)
+          .attr("stroke", "#111")     
+          .attr("stroke-width", isMe ? 1.5 : 0.5);
 
         grp.append("text")
-          .attr("class", d => d.id === "Ayaan Ahmed" ? "node-label node-label-me" : "node-label") // Different CSS class for my label
-          .attr("data-nid", d => d.id)  // Store node id on the element — used by hover to look up fill colour
-          .attr("text-anchor", "middle") // Centre text horizontally on the node
-          .attr("dy", d => nodeR(d) + 8) // Push label down below the circle edge
-          .text(d => d.id);              // The person's name
+          .attr("class", d => d.id === "Ayaan Ahmed" ? "node-label node-label-me" : "node-label")
+          .attr("data-nid", d => d.id) 
+          .attr("text-anchor", "middle")
+          .attr("dy", d => nodeR(d) + 8) 
+          .text(d => d.id); 
 
-        grp.attr("transform", d => `translate(${d.x},${d.y})`); // Move the group to its pre-ticked position
-        return grp; // Return the group so callers can attach hover events
+        grp.attr("transform", d => `translate(${d.x},${d.y})`); 
+        return grp;
       }
 
-      // Draw all regular nodes (everyone except me) — they go into the SVG first
       // Source: Bostock, M. d3-selection join. https://d3js.org/d3-selection/joining
       const node = g.append("g").selectAll("g").data(regularNodes).join("g")
         .attr("class", "node-group")
@@ -2697,106 +2656,89 @@
             .on("end",   (ev, d) => { if (!ev.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
         );
 
-      node.append("circle") // Draw the circle for each regular node
+      node.append("circle") // Draws a circle for each regular node, the actual node itself
         .attr("r", d => nodeR(d))
         .attr("fill", d => GROUPS[d.group].color)
         .attr("stroke", "#111")
         .attr("stroke-width", 0.5);
 
-      node.append("text") // Draw the name label for each regular node
+      node.append("text") // creates the name label for each node
         .attr("class", "node-label")
         .attr("data-nid", d => d.id)
         .attr("text-anchor", "middle")
         .attr("dy", d => nodeR(d) + 8)
         .text(d => d.id);
-
-      // Draw my node last — SVG paints in document order so last = on top of everything
       const myNodeGrp = makeNodeGroup(myNodeData, true);
-
-      // allNodes groups both selections so hover can act on both at once
       const allNodes = [node, myNodeGrp];
 
 
       ///// HOVER /////
 
       // Source: Bostock, M. d3-selection events. https://d3js.org/d3-selection/events
-      const tooltip = d3.select("#tooltip"); // Select the tooltip div from the HTML
-
-      // applyHover fires when the mouse enters a node
-      // It dims everyone not connected to the hovered node and shows the tooltip
+      const tooltip = d3.select("#tooltip"); 
+      // This dims everyone not connected to the hovered node
       function applyHover(ev, d) {
 
-        // Build a set of all node ids connected to the hovered node (including itself)
-        const connectedIds = new Set([d.id]); // Start with the hovered node itself
+        const connectedIds = new Set([d.id]);
         EDGES.forEach(l => {
-          const sid = l.source.id || l.source; // Handle both string and resolved-object form
+          const sid = l.source.id || l.source;
           const tid = l.target.id || l.target;
-          if (sid === d.id) connectedIds.add(tid); // Add nodes this one connects to
-          if (tid === d.id) connectedIds.add(sid); // Add nodes that connect to this one
+          if (sid === d.id) connectedIds.add(tid); 
+          if (tid === d.id) connectedIds.add(sid); 
         });
 
-        // Dim all nodes that aren't in the connected set to near-invisible
         allNodes.forEach(grp => grp.style("opacity", n => connectedIds.has(n.id) ? 1 : 0.05));
 
-        // Highlight connected edges bright, dim everything else nearly invisible
         link
           .attr("stroke", l => {
             const sid = l.source.id || l.source;
             const tid = l.target.id || l.target;
-            return (sid === d.id || tid === d.id) ? "#bbb" : "#444"; // Bright grey vs dark grey
+            return (sid === d.id || tid === d.id) ? "#bbb" : "#444"; 
           })
           .attr("stroke-opacity", l => {
             const sid = l.source.id || l.source;
             const tid = l.target.id || l.target;
-            return (sid === d.id || tid === d.id) ? 1 : 0.04; // Full opacity vs nearly invisible
+            return (sid === d.id || tid === d.id) ? 1 : 0.04; 
           });
 
-        // Update all label fill colours — connected labels stay white, others go near-black
         document.querySelectorAll("text[data-nid]").forEach(el => {
           el.style.fill = connectedIds.has(el.getAttribute("data-nid")) ? "#fff" : "#181818";
         });
 
-        // Populate the tooltip with this node's name, group label, and outgoing connections
-        const conns = clickAdj.get(d.id) || []; // Look up outgoing connections from adjacency list
-        document.getElementById("tt-name").textContent = d.id; // Person's name
-        document.getElementById("tt-name").style.color = GROUPS[d.group].color; // Coloured by group
-        document.getElementById("tt-group").textContent = GROUPS[d.group].label; // Group name text
+        const conns = clickAdj.get(d.id) || []; 
+        document.getElementById("tt-name").textContent = d.id; 
+        document.getElementById("tt-name").style.color = GROUPS[d.group].color; 
+        document.getElementById("tt-group").textContent = GROUPS[d.group].label; 
+        const deg = degreeMap.get(d.id);
+        document.getElementById("tt-degree").textContent = deg === 0
+          ? "That's me"
+          : deg != null ? `${ordinals[deg] || deg + "th"} degree connection` : "";
         document.getElementById("tt-links").innerHTML = conns.length
-          ? conns.map(c => `<span class="rel">${c.rel}</span> <span class="name">— ${c.name}</span>`).join("<br>") // List of connections
-          : "<span class='name'>No outgoing connections</span>"; // Fallback if no outgoing edges
-        tooltip.classed("visible", true); // Make tooltip visible (CSS handles opacity transition)
+          ? conns.map(c => `<span class="rel">${c.rel}</span> <span class="name">— ${c.name}</span>`).join("<br>") 
+          : "<span class='name'>No outgoing connections</span>"; 
+        tooltip.classed("visible", true); 
       }
 
-      // clearHover fires when the mouse leaves a node — resets everything back to default
       function clearHover() {
-        allNodes.forEach(grp => grp.style("opacity", 1)); // Restore all node opacities
-        link.attr("stroke", "#444").attr("stroke-opacity", 0.8); // Restore edge colours
-        document.querySelectorAll("text[data-nid]").forEach(el => { el.style.fill = "#fff"; }); // Restore label colours
-        tooltip.classed("visible", false); // Hide tooltip
+        allNodes.forEach(grp => grp.style("opacity", 1)); 
+        link.attr("stroke", "#444").attr("stroke-opacity", 0.8); 
+        document.querySelectorAll("text[data-nid]").forEach(el => { el.style.fill = "#fff"; });
+        tooltip.classed("visible", false); 
       }
-
-      // moveTooltip updates the tooltip position to follow the mouse
-      // It flips to the left of the cursor if the tooltip would overflow the right edge of the screen
       function moveTooltip(ev) {
-        const x = ev.clientX + 18; // 18px offset so it doesn't sit directly on the cursor
-        const y = ev.clientY - 14; // Slight upward offset
+        const x = ev.clientX + 18;
+        const y = ev.clientY - 14;
         tooltip
-          .style("left", (x + 260 > window.innerWidth ? ev.clientX - 270 : x) + "px") // Flip if near right edge
+          .style("left", (x + 260 > window.innerWidth ? ev.clientX - 270 : x) + "px")
           .style("top", y + "px");
       }
 
-      // Attach hover events to all node groups
       node.on("mouseover", applyHover).on("mousemove", moveTooltip).on("mouseout", clearHover);
       myNodeGrp.on("mouseover", applyHover).on("mousemove", moveTooltip).on("mouseout", clearHover);
 
-      // Clicking anywhere on the SVG background dismisses the tooltip
       svg.on("click", () => tooltip.classed("visible", false));
 
 
-      ///// TICK /////
-
-      // simulation.on("tick") fires after each physics step while the sim is running
-      // We update every edge endpoint and node position to match the new physics state
       // Source: Bostock, M. d3-force simulation.on. https://d3js.org/d3-force/simulation#simulation_on
       simulation.on("tick", () => {
         link
@@ -2809,43 +2751,33 @@
         myNodeGrp.attr("transform", d => `translate(${d.x},${d.y})`); // Move my node group
       });
 
-
-      ///// INITIAL ZOOM /////
-
-      // Set a starting zoom level so the graph fills the screen comfortably on load
-      // zoomIdentity creates a fresh transform, then we apply translation and scale
-      // initTx/initTy centre the zoom origin on the screen so the graph doesn't shift sideways
       // Source: Bostock, M. d3-zoom transform. https://d3js.org/d3-zoom#zoomTransform
-      const initScale = 0.7; // Start slightly zoomed out so the full graph is visible
-      const initTx = W / 2 - initScale * (W / 2); // Horizontal offset to keep centre aligned
-      const initTy = H / 2 - initScale * (H / 2); // Vertical offset to keep centre aligned
+      const initScale = window.innerWidth < 600 ? 0.35 : 0.7; // Mobile gets a wider initial view
+      const initTx = W / 2 - initScale * (W / 2); 
+      const initTy = H / 2 - initScale * (H / 2); 
       svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(initTx, initTy).scale(initScale));
 
-      // Restart the sim at low alpha so it gently finishes settling after the pre-ticks
-      // Alpha 0.15 gives enough energy to drift to a natural resting position without chaos
+
       // Source: Bostock, M. d3-force simulation.restart. https://d3js.org/d3-force/simulation#simulation_restart
       simulation.alpha(0.15).restart();
 
 
       ///// FORCE SLIDERS /////
 
-      // refreshSim applies the current slider values to the live simulation and warms it up
-      // Calling alpha(0.4).restart() gives the sim enough energy to respond to the new forces
       // Source: Bostock, M. d3-force simulation. https://d3js.org/d3-force/simulation
       function refreshSim() {
-        simulation.force("link").distance(linkDist).strength(linkStrVal); // Update link force
-        simulation.force("charge").strength(chargeVal); // Update repulsion force
-        simulation.force("x").strength(centerVal); // Update horizontal centre pull
-        simulation.force("y").strength(centerVal); // Update vertical centre pull
-        simulation.alpha(0.4).restart(); // Warm the sim up so it responds to the new values
+        simulation.force("link").distance(linkDist).strength(linkStrVal); 
+        simulation.force("charge").strength(chargeVal);
+        simulation.force("x").strength(centerVal); 
+        simulation.force("y").strength(centerVal);
+        simulation.alpha(0.4).restart();
       }
-
-      // Each slider listens for the "input" event — fires on every drag movement, not just release
+      // Each slider listens for the "input" event
       // Source: MDN. input event. https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/input_event
       document.getElementById("s-center").addEventListener("input", function() {
-        centerVal = +this.value; // + converts the string value to a number
-        document.getElementById("v-center").textContent = centerVal; // Update the displayed value
-        refreshSim(); // Apply to simulation
+        centerVal = +this.value; 
+        document.getElementById("v-center").textContent = centerVal; 
+        refreshSim(); 
       });
       document.getElementById("s-charge").addEventListener("input", function() {
         chargeVal = +this.value;
@@ -2866,10 +2798,10 @@
 
       ///// SHOW RELATIONSHIPS TOGGLE /////
 
-      // Tracks whether edge labels are currently visible — starts false (hidden)
+      // Tracks whether edge labels are currently visible
       let edgeLabelsVisible = false;
 
-      // Clicking the button flips the visibility and updates the button's active state
+      // Clicking the button flips the visibility
       // Source: MDN. Element.classList. https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
       document.getElementById("toggle-elabels").addEventListener("click", function() {
         edgeLabelsVisible = !edgeLabelsVisible; // Flip the boolean
@@ -2877,39 +2809,31 @@
         this.classList.toggle("active", edgeLabelsVisible); // Update button appearance to match state
       });
 
-    } // end buildGraph()
+    }
 
 
-    ///// 19. BUILD KEY PANEL /////
+    ///// KEY PANEL /////
 
-    // Dynamically build the key grid from the GROUPS object
-    // This way the key always matches whatever groups are defined at the top of the file
-    const keyGrid = document.getElementById("key-grid"); // The div that holds the key items
-    const HIDE_FROM_KEY = new Set(["bollywood"]); // Bollywood shares the Celebrities colour — hide to avoid duplication
-
-    // Loop through every group and create a coloured dot + label for each visible one
+    const keyGrid = document.getElementById("key-grid");
+    const HIDE_FROM_KEY = new Set(["bollywood"]); 
     // Source: MDN. Object.entries. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/entries
     Object.entries(GROUPS).forEach(([k, v]) => {
-      if (HIDE_FROM_KEY.has(k)) return; // Skip hidden groups
-      keyGrid.innerHTML += `<div class="key-item"><div class="key-dot" style="background:${v.color}"></div>${v.label}</div>`; // Inject the dot and label HTML
+      if (HIDE_FROM_KEY.has(k)) return; 
+      keyGrid.innerHTML += `<div class="key-item"><div class="key-dot" style="background:${v.color}"></div>${v.label}</div>`;
     });
 
 
-    ///// PANEL COLLAPSE TOGGLE /////
+    ///// PANELS COLLAPSE  /////
 
-    // togglePanel is called by the onclick on each panel title bar
-    // classList.toggle("collapsed") adds the class if absent, removes it if present
-    // The chevron text flips between ▲ and ▼ to show current state
     // Source: MDN. Element.classList.toggle. https://developer.mozilla.org/en-US/docs/Web/API/DOMTokenList/toggle
     function togglePanel(id) {
-      const panel = document.getElementById(id); // Find the panel by its HTML id
-      const isCollapsed = panel.classList.toggle("collapsed"); // Toggle the collapsed class and get the new state
-      panel.querySelector(".panel-chevron").textContent = isCollapsed ? "▼" : "▲"; // Update chevron direction
+      const panel = document.getElementById(id); 
+      const isCollapsed = panel.classList.toggle("collapsed"); 
+      panel.querySelector(".panel-chevron").textContent = isCollapsed ? "▲" : "▼"; // Update arrow direction
     }
 
-    // Set the initial chevron state on page load — all panels start open so chevron points up
     document.querySelectorAll(".panel").forEach(p => {
-      p.querySelector(".panel-chevron").textContent = "▲"; // ▲ = open/expanded
+      p.querySelector(".panel-chevron").textContent = "▼";
     });
   </script>
 </body>
