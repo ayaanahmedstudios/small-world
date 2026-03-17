@@ -2,154 +2,708 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Favicon — stored locally in the same folder -->
   <link rel="icon" type="image/png" href="small-world-favicon.png">
   <title>About — It's a Small World</title>
-  <!-- Manrope: Google Fonts CDN with local fallback in fonts/ folder -->
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
   <style>
+    /*////// FONTS //////*/
+
     @font-face { font-family: 'Lombard'; src: url('fonts/Lombard-regular.otf') format('opentype'); }
 
-    /* Local Manrope fallback — if Google Fonts CDN is unavailable */
+    /* font for the code snippet tags in Code Citations */
+    @font-face { font-family: 'DepartureMono'; src: url('fonts/DepartureMono-Regular.otf') format('opentype'); }
+
     @font-face {
       font-family: 'Manrope';
       src: url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');
       font-weight: 200 800;
       font-style: normal;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Main page background */
     body {
       background: #111;
-      color: #ddd;
+      color: #fff;
       font-family: 'Manrope', sans-serif;
-      padding: 60px 24px 120px;
+      padding: 75px 30px 175px;
       min-height: 100vh;
     }
 
     .wrapper {
       width: 100%;
-      max-width: 640px;
+      max-width: 850px;
       margin: 0 auto;
     }
 
+
+    /*////// BACK BUTTON //////*/
+
     .back {
       display: inline-block;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #555;
+      color: #888;
       text-decoration: none;
+      background: #1a1a1a;
       border: 1px solid #2a2a2a;
       border-radius: 20px;
-      padding: 6px 14px;
-      margin-bottom: 64px;
-      transition: color 0.15s, border-color 0.15s;
+      padding: 8px 18px;
+      margin-bottom: 30px;
+      transition: background-color 0.25s, color 0.25s, border-color 0.25s;
     }
-    .back:hover { color: #fff; border-color: #555; }
+    /* White fill on hover */
+    .back:hover { background: #fff; color: #111; border-color: #fff; }
+
+
+    /*////// TITLE  //////*/
 
     .title-block {
       text-align: center;
-      margin-bottom: 72px;
+      margin-bottom: 16px;
     }
+
     .title-top {
       font-family: 'Lombard', serif;
-      font-size: clamp(16px, 3vw, 40px);
+      font-size: clamp(28px, 5vw, 65px);
       color: #555;
       line-height: 1;
-      margin-bottom: -0.06em;
+      margin-bottom: -0.18em;
     }
+
     .title-display {
       font-family: 'Lombard', serif;
-      font-size: clamp(52px, 11vw, 160px);
+      font-size: clamp(65px, 14vw, 200px);
       color: #fff;
       line-height: 0.88;
     }
 
-    .section {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #444;
-      margin-bottom: 24px;
+    /* "by [logo]" */
+    .title-byline {
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 22px;
+      margin-bottom: 80px;
     }
-    .section::before { content: '#'; font-size: 13px; color: #333; }
+    .title-byline span {
+      font-size: 21px;
+      font-weight: 400;
+      color: #555;
+      letter-spacing: 0.06em;
+    }
+    .title-byline img {
+      height: 40px;
+      width: auto;
+      opacity: 0.55;
+    }
+
+
+    /*////// ABOUT PARAGRAPH //////*/
+
+    .about-body {
+      font-size: 19px;
+      font-weight: 400;
+      line-height: 1.85;
+      color: #fff;
+      margin-bottom: 60px;
+      text-wrap: pretty;  /* text-wrap: pretty, that fun css element i found for the last project too */
+    }
+
+
+    /*////// SECTION HEADERS //////*/
+
+    .section {
+      margin-top: 90px;
+      font-size: 33px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: none;
+      color: #fff;
+      margin-bottom: 35px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
     .section::after { content: ''; flex: 1; height: 1px; background: #1e1e1e; }
 
-    .cite-list { margin-bottom: 72px; }
+
+    /*////// GRAPH DATA — 309/1620 stats //////*/
+
+    .graph-block { margin-bottom: 0; }
+
+    .graph-totals {
+      display: flex;
+      gap: 60px;
+      justify-content: center;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .graph-total-num {
+      font-size: 40px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .graph-total-label {
+      font-size: 15px;
+      font-weight: 500;
+      color: #888;
+    }
+
+    .deg-row {
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .deg-row:first-child { border-top: 1px solid #1a1a1a; }
+
+    .deg-row-header {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 9px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .deg-row-header:hover .deg-row-label { color: #fff; }
+
+    .deg-row-ord {
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+      width: 28px;
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+    .deg-row-label {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 500;
+      color: #aaa;
+      transition: color 0.15s;
+    }
+    .deg-row.open .deg-row-label { color: #fff; }
+
+    .deg-row-count { display: none; }
+
+    .deg-row-arrow {
+      font-size: 10px;
+      color: #333;
+      width: 14px;
+      text-align: right;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .deg-row.open .deg-row-arrow { transform: rotate(180deg); }
+
+    .deg-names {
+      display: none;
+      padding: 5px 0 25px 52px;
+      font-size: 15px;
+      font-weight: 400;
+      color: #666;
+      line-height: 1.9;
+      word-spacing: 0.18em;
+      text-wrap: pretty;
+    }
+    .deg-row.open .deg-names { display: block; }
+
+
+    /*////// GENERAL CITATIONS //////*/
+
+    .cite-list { margin-bottom: 90px; counter-reset: cite-counter; }
 
     .cite {
-      padding: 14px 0;
+      counter-increment: cite-counter;
+      padding: 18px 0;
       border-bottom: 1px solid #1a1a1a;
-      font-size: 14px;
-      font-weight: 500;
-      color: #bbb;
-      line-height: 1.7;
     }
-    .cite:first-child { border-top: 1px solid #1a1a1a; }
+
+    .cite::before {
+      content: counter(cite-counter, decimal-leading-zero);
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .cite-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.5;
+      text-wrap: pretty;
+    }
+
+    .cite-note {
+      display: block;
+      font-size: 15px;
+      font-weight: 500;
+      color: #888;
+      margin-top: 12px;
+      line-height: 1.6;
+      text-wrap: pretty;
+    }
+
+    /* Yellow hyperlinks */
+    a.cite-link { color: #FFD700; text-decoration: none; }
+    a.cite-link:hover { text-decoration: underline; }
 
     a { color: #666; text-decoration: none; transition: color 0.15s; }
     a:hover { color: #aaa; }
-  </style>
+
+
+    /*////// CODE CITATIONS //////*/
+
+    .code-cite {
+      padding: 20px 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .code-tag {
+      display: inline-block;
+      font-family: 'DepartureMono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+    }
+
+    .code-body {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.6;
+      margin-bottom: 9px;
+      text-wrap: pretty;
+    }
+
+    .code-citation {
+      font-size: 15px;
+      font-weight: 500;
+      color: #888;
+      line-height: 1.7;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    .code-citation a.cite-link {
+      overflow-wrap: break-word;
+      word-break: break-all;
+    }
+
+
+    /*////// FOOTER //////*/
+
+    /* Copyright line */
+    .footer {
+      font-size: 15px;
+      font-weight: 500;
+      color: #555;
+      text-align: center;
+      padding-top: 50px;
+      border-top: 1px solid #1a1a1a;
+    }
+</style>
 </head>
 <body>
 <div class="wrapper">
 
   <a href="index.html" class="back">← Graph</a>
 
+  <!-- Title -->
   <div class="title-block">
     <div class="title-top">It's a</div>
-    <div class="title-display">Small<br>World</div>
+    <div class="title-display">Small</div>
+    <div class="title-display" style="margin-top:0.08em">World</div>
+  </div>
+  <div class="title-byline">
+    <span>by</span>
+    <img src="logo.svg" alt="Ayaan Ahmed">
   </div>
 
-  <div class="section">Citations</div>
+  <!-- About -->
+  <div class="about-body">
+    It’s a Small World is a project based on stupidness. The stupidness of how easily the world is interconnected, and how stupidly I can connect myself to some of the most famous people on Earth through just a handful of connections. The theory of six degrees of separation is also affirmed in this project, with not a single connection out of the 309 ever stretching onto the 7th degree of connection.
+  </div>
 
+  <!-- Graph data block -->
+  <div class="graph-block">
+
+    <div class="graph-totals">
+      <div>
+        <div class="graph-total-num">309</div>
+        <div class="graph-total-label">people</div>
+      </div>
+      <div>
+        <div class="graph-total-num">1,620</div>
+        <div class="graph-total-label">relationships</div>
+      </div>
+    </div>
+
+    <div class="deg-row">
+      <div class="deg-row-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="deg-row-ord">1°</span>
+        <span class="deg-row-label">11 People I've Directly Met</span>
+        <span class="deg-row-count">11</span>
+        <span class="deg-row-arrow">▼</span>
+      </div>
+      <div class="deg-names">Afaque Ahmed · David Kaye · Hussein Mohammed Al Hassni · Katie Horvath · Khalid Al Ameri · Mohammad Arham Khan · Mohammed Al Muallem · Rishabh Dhall · Shaan · Tara Platt · Yuri Lowenthal</div>
+    </div>
+    <div class="deg-row">
+      <div class="deg-row-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="deg-row-ord">2°</span>
+        <span class="deg-row-label">14 People those 11 Have Met</span>
+        <span class="deg-row-count">14</span>
+        <span class="deg-row-arrow">▼</span>
+      </div>
+      <div class="deg-names">Amitabh Bacchan · Drake · Eric Bauza · Greg Cipes · Jordan Belford · Mark Hamill · Mohamed Abdalla Al Zaabi · Nas Daily · Raheel Khan · Salman Khan · Shah Rukh Khan · Sultan Ahmed bin Sulayem · Tiger Shroff · Tom Kenny</div>
+    </div>
+    <div class="deg-row">
+      <div class="deg-row-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="deg-row-ord">3°</span>
+        <span class="deg-row-label">36 People those 14 Have Met</span>
+        <span class="deg-row-count">36</span>
+        <span class="deg-row-arrow">▼</span>
+      </div>
+      <div class="deg-names">Adam Driver · Andrew Mountbatten-Windsor · Arif Alvi · Carrie Fisher · Christopher Lee · Daisy Ridley · George Lucas · Harrison Ford · Hayden Christensen · Imran Khan · Jeffrey Epstein · Jim Cummings · Kate Middleton · Mohammed Bin Salman · Narendra Modi · Natalie Portman · Oscar Isaac · Prince William · Sam Raimi · Sarah Silverman · Sheikh Hamdan · Sheikh Mohammed Bin Rashid · Tara Strong · and others</div>
+    </div>
+    <div class="deg-row">
+      <div class="deg-row-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="deg-row-ord">4°</span>
+        <span class="deg-row-label">155 People those 36 Have Met</span>
+        <span class="deg-row-count">155</span>
+        <span class="deg-row-arrow">▼</span>
+      </div>
+      <div class="deg-names">Aaron Taylor-Johnson · Adam Sandler · Adele · Adrien Brody · Alan Cumming · Alan Rickman · Alec Baldwin · Amy Adams · Ana De Armas · Andrew Garfield · Andy Serkis · Angelina Jolie · Anna Kendrick · Anne Hathaway · Antonio Banderas · Arif Alvi · Asa Butterfield · Aubrey Plaza · Avi Arad · Barack Obama · Ben Affleck · Ben Kingsley · Ben Stiller · Benedict Cumberbatch · Benjamin Netanyahu · Beyoncé · Bill Clinton · Bill Gates · Bill Hader · Bill Murray · Blake Lively · Bob Iger · Boris Johnson · Brad Pitt · Brie Larson · Bryce Dallas Howard · Butch Hartman · Cameron Diaz · Cara Delevingne · Cate Blanchett · Catherine Zeta-Jones · Chadwick Boseman · Channing Tatum · Chloë Grace Moretz · Chris Evans · Chris Hemsworth · Chris Pine · Chris Pratt · Christian Bale · Christiano Ronaldo · Cillian Murphy · Cobie Smulders · Conan O'Brien · Daniel Craig · Daniel Radcliffe · Danny DeVito · Dave Franco · David Harbour · Don Cheadle · Donald Trump · Dwayne Johnson · EJAE · Ed Sheeran · Eddie Murphy · Elijah Wood · Elizabeth Olsen · Ella Purnell · Ellen DeGeneres · Elon Musk · Elton John · Emily Blunt · Emma Stone · Emma Thompson · Emma Watson · Evangeline Lilly · Ewan McGregor · Florence Pugh · Freddie Highmore · Gal Gadot · Gary Oldman · George Clooney · George W Bush · Giorgio Armani · Gwyneth Paltrow · Hailee Stenfeld · Halle Berry · Harry Styles · Hayley Atwell · Helena Bonham Carter · Henry Cavill · Hugh Grant · Hugh Jackman · Idina Menzel · Idris Elba · Isabela Merced · Isla Fisher · J. K. Simmons · Jack Black · Jackie Chan · Jaden Smith · Jake Gyllenhaal · James Cameron · James Corden · James Franco · James Gunn · James Marsden · Jason Bateman · Jason Momoa · Jason Segel · Jeff Bezos · Jeff Goldblum · Jenna Fischer · Jenna Ortega · Jennifer Aniston · Jennifer Lawrence · Jeremy Renner · Jesse Eisenberg · Jessica Alba · Jim Carrey · Jimmy Fallon · Jimmy Kimmel · Joaquin Phoenix · Joe Biden · John Cena · John Krasinski · Johnny Depp · Jon Favreau · Jonah Hill · Josh Hutcherson · Jude Law · Justin Bieber · Justin Timberlake · Justin Trudeau · Kate Winslet · Kathleen Kennedy · Keanu Reeves · Keira Knightley · Ken Jeong · Kevin Feige · Kevin Hart · Kevin James · Kim Kardashian · King Charles III · Kirsten Dunst · Kristen Bell · Kristen Wiig · Laura Dern · Laurence Fishburne · Leonardo Di Caprio · Liam Hemsworth · Liam Neeson · Lionel Messi · Macaulay Culkin</div>
+    </div>
+    <div class="deg-row">
+      <div class="deg-row-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="deg-row-ord">5°</span>
+        <span class="deg-row-label">85 People those 155 Have Met</span>
+        <span class="deg-row-count">85</span>
+        <span class="deg-row-arrow">▼</span>
+      </div>
+      <div class="deg-names">B. J. Novak · Irrfan Khan · Malala Yousafzai · Margot Robbie · Mark Ruffalo · Mark Zuckerberg · Martin Freeman · Martin Scorsese · Matt Damon · Matthew McConaughey · Maya Rudolph · Megan Fox · Meryl Streep · Michael B Jordan · Michael Caine · Michael Jackson · Michael Keaton · Michelle Obama · Mike Myers · Mila Kunis · Mindy Kaling · Morgan Freeman · Neil Patrick Harris · Nelson Mandela · Nicolas Cage · Octavia Spencer · Oprah Winfrey · Owen Wilson · Paul Rudd · Princess Diana · Queen Elizabeth II · Rainn Wilson · Ralph Fiennes · Rebel Wilson · Reese Witherspoon · Robert De Niro · Robert Downey Jr · Robert Pattinson · Robin Williams · Rose Byrne · Rowan Atkinson · Rupert Grint · Russell Crowe · Ryan Gosling · Ryan Reynolds · Sacha Baron Cohen · Sam Altman · Samuel L Jackson · Scarlett Johansson · Selena Gomez · Seth Rogen · Shakira · Sir David Attenborough · Sir Ian McKellen · Stan Lee · Stanley Tucci · Steve Carell · Steve Jobs · Steven Spielburg · Taika Waititi · Taylor Swift · Tim Cook · Timothee Chalamet · Tobey Maguire · Tom Cruise · Tom Hanks · Tom Hardy · Tom Hiddleston · Tom Holland · Vladimir Putin · Will Smith · Willem Dafoe · Winona Ryder · Woody Harrelson · Xi Jinping · Zac Efron · Zendaya · Zoe Saldana</div>
+    </div>
+    <div class="deg-row">
+      <div class="deg-row-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="deg-row-ord">6°</span>
+        <span class="deg-row-label">5 People those 85 Have Met</span>
+        <span class="deg-row-count">5</span>
+        <span class="deg-row-arrow">▼</span>
+      </div>
+      <div class="deg-names">Christopher Lloyd · EJAE · Jenna Ortega · Megan Fox · Michael J Fox</div>
+    </div>
+
+  <!-- General Citations -->
+  <div class="section">Citations</div>
   <div class="cite-list">
 
-    <div class="cite">Argyle, Adam. <em>transition.style.</em> Accessed March 2026. <a href="https://www.transition.style/#out:circle:center" target="_blank">https://www.transition.style</a>.</div>
+    <div class="cite">
+      <div class="cite-text">A library of Javascript data visualization scripts. I originally wanted to, and did completely build my graph visualization on Obsidian but then converted everything to D3JS due to it's customizability.</div>
+      <span class="cite-note">Bostock, Mike. <em>D3.js.</em> Observable, 2011. <a href="https://d3js.org" class="cite-link" target="_blank">https://d3js.org</a>.</span>
+    </div>
 
-    <div class="cite">Bostock, Mike. <em>D3.js.</em> Observable, 2011. <a href="https://d3js.org" target="_blank">https://d3js.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">The main D3JS Graph code I used to visualize my 300+ markdown files worth of node data from Obsidian into HTML code I could use and export in any way I wanted.</div>
+      <span class="cite-note">Bostock, Mike. <em>Force-Directed Graph.</em> Observable, 2023. <a href="https://observablehq.com/@d3/force-directed-graph/2" class="cite-link" target="_blank">https://observablehq.com/@d3/force-directed-graph/2</a>.</span>
+    </div>
 
-    <div class="cite">Bostock, Mike. <em>Force-Directed Graph.</em> Observable, 2023. <a href="https://observablehq.com/@d3/force-directed-graph/2" target="_blank">https://observablehq.com/@d3/force-directed-graph/2</a>.</div>
+    <div class="cite">
+      <div class="cite-text">Used to write and manage the 309 markdown files that store each person's connection data, this really helped since it retained the memory of past node entries I made for me.</div>
+      <span class="cite-note">Obsidian. <em>Obsidian.</em> Accessed March 2026. <a href="https://obsidian.md" class="cite-link" target="_blank">https://obsidian.md</a>.</span>
+    </div>
 
-    <div class="cite">Bostock, Mike. <em>Sticky Force Layout.</em> Observable, 2023. <a href="https://observablehq.com/@d3/sticky-force-layout" target="_blank">https://observablehq.com/@d3/sticky-force-layout</a>.</div>
+    <div class="cite">
+      <div class="cite-text">The main font used throughout the site and visualization.</div>
+      <span class="cite-note">Toth, Miksa. <em>Manrope.</em> Google Fonts, 2018. <a href="https://fonts.google.com/specimen/Manrope" class="cite-link" target="_blank">https://fonts.google.com/specimen/Manrope</a>.</span>
+    </div>
 
-    <div class="cite">D3 in Depth. <em>Force Layout.</em> Accessed March 2026. <a href="https://www.d3indepth.com/force-layout/" target="_blank">https://www.d3indepth.com/force-layout</a>.</div>
+    <div class="cite">
+      <div class="cite-text">The font used for the Main title, ironically I was inspired by 'Mark Lombardi' from his data visualizations and Lombard similar to his last name was used as the title font.</div>
+      <span class="cite-note">Fontesk. <em>Lombard Font.</em> Accessed March 2026. <a href="https://fontesk.com/lombard-font/" class="cite-link" target="_blank">https://fontesk.com/lombard-font/</a>.</span>
+    </div>
 
-    <div class="cite">MDN Web Docs. "breadth-first search." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/classList" target="_blank">developer.mozilla.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">The circular transition from the title screen to the graph.</div>
+      <span class="cite-note">Argyle, Adam. <em>transition.style.</em> Accessed March 2026. <a href="https://www.transition.style/#out:circle:center" class="cite-link" target="_blank">https://www.transition.style</a>.</span>
+    </div>
 
-    <div class="cite">MDN Web Docs. "clip-path." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path" target="_blank">developer.mozilla.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">An article on Mark Lombardi's hand-drawn conspiracy network drawings, a key aesthetic reference for the rounded, organic visual style of this graph.</div>
+      <span class="cite-note">Fry, Ben. "Learning from Lombardi." <em>Medium.</em> Accessed February 2026. <a href="https://medium.com/@ben_fry/learning-from-lombardi-a28032a7eb5" class="cite-link" target="_blank">https://medium.com/@ben_fry/learning-from-lombardi-a28032a7eb5</a>.</span>
+    </div>
 
-    <div class="cite">MDN Web Docs. "CSS Grid Layout." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout" target="_blank">developer.mozilla.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">The theoretical basis for the whole project — the idea that any two people are connected by at most six social steps, which my project confirms.</div>
+      <span class="cite-note">Wikipedia. "Six Degrees of Separation." Accessed March 2026. <a href="https://en.wikipedia.org/wiki/Six_degrees_of_separation" class="cite-link" target="_blank">https://en.wikipedia.org/wiki/Six_degrees_of_separation</a>.</span>
+    </div>
 
-    <div class="cite">MDN Web Docs. "Element.classList." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/classList" target="_blank">developer.mozilla.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">Another reading on the six degrees theory that gives this project its conceptual foundation.</div>
+      <span class="cite-note">Denys A. "The Six Degrees of Separation: Connecting the World." <em>PsychoTricks.</em> October 2024. <a href="https://psychotricks.com/six-degrees-of-separation/" class="cite-link" target="_blank">https://psychotricks.com/six-degrees-of-separation/</a>.</span>
+    </div>
 
-    <div class="cite">MDN Web Docs. "JavaScript Map." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map" target="_blank">developer.mozilla.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">Explored as a potential tool for generating the layout, eventually not used in favour of a fully custom D3 approach.</div>
+      <span class="cite-note">Gephi. <em>Gephi.</em> Gephi Consortium. Accessed February 2026. <a href="https://gephi.org/" class="cite-link" target="_blank">https://gephi.org/</a>.</span>
+    </div>
 
-    <div class="cite">MDN Web Docs. "XMLSerializer." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/XMLSerializer" target="_blank">developer.mozilla.org</a>.</div>
+    <div class="cite">
+      <div class="cite-text">Another graph tool tried during early development, but couldn't possibly be used for as much data I was making.</div>
+      <span class="cite-note">yEd Graph Editor. <em>yEd Graph Editor.</em> yWorks. Accessed February 2026. <a href="https://www.yworks.com/products/yed" class="cite-link" target="_blank">https://www.yworks.com/products/yed</a>.</span>
+    </div>
 
-    <div class="cite">Observable. <em>d3-force.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation" target="_blank">https://d3js.org/d3-force</a>.</div>
+    <div class="cite">
+      <div class="cite-text">Probably the one I'd least go back to, which this route I was completely intending on drawing each node by hand manually, completely unrealistic.</div>
+      <span class="cite-note">draw.io. <em>draw.io.</em> JGraph Ltd. Accessed February 2026. <a href="https://www.draw.io/" class="cite-link" target="_blank">https://www.draw.io/</a>.</span>
+    </div>
 
-    <div class="cite">Observable. <em>d3-scale.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-scale#scaleSqrt" target="_blank">https://d3js.org/d3-scale</a>.</div>
+    <div class="cite">
+      <div class="cite-text">A reddit post I found where a user had the exact same problem as me and was trying to export the Obsidian graph as a PDF, I used the solutions in the comments but nothing worked.</div>
+      <span class="cite-note">Reddit. "Is There a Way to Export the Obsidian Graph?" r/ObsidianMD. Accessed March 2026. <a href="https://www.reddit.com/r/ObsidianMD/comments/1g6egr1/is_there_a_way_to_export_the_obsidian_graph_as_a/" class="cite-link" target="_blank">https://www.reddit.com/r/ObsidianMD/</a>.</span>
+    </div>
 
-    <div class="cite">Observable. <em>d3-zoom.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-zoom" target="_blank">https://d3js.org/d3-zoom</a>.</div>
+    <div class="cite">
+      <div class="cite-text">One of the Obsidian plug-ins I found that might help export the graph within it to PDF but didn't really work</div>
+      <span class="cite-note">Zha, Jacky. <em>Quartz.</em> GitHub repository. Accessed March 2026. <a href="https://github.com/jackyzha0/quartz" class="cite-link" target="_blank">https://github.com/jackyzha0/quartz</a>.</span>
+    </div>
 
-    <div class="cite">Obsidian. <em>Obsidian.</em> Accessed March 2026. <a href="https://obsidian.md" target="_blank">https://obsidian.md</a>.</div>
+    <div class="cite">
+      <div class="cite-text">An Obsidian plugin for interactive graph visualisation, still didn't export to PDF like I wanted.</div>
+      <span class="cite-note">HEmile. <em>Juggl.</em> GitHub repository. Accessed March 2026. <a href="https://github.com/HEmile/juggl" class="cite-link" target="_blank">https://github.com/HEmile/juggl</a>.</span>
+    </div>
 
-    <div class="cite">Stamen Design. "Forcing Functions: Inside D3.v4 Forces and Layout Transitions." Accessed March 2026. <a href="https://stamen.com/forcing-functions-inside-d3-v4-forces-and-layout-transitions-f3e89ee02d12/" target="_blank">stamen.com</a>.</div>
-
-    <div class="cite">Toth, Miksa. <em>Manrope.</em> Google Fonts, 2018. <a href="https://fonts.google.com/specimen/Manrope" target="_blank">https://fonts.google.com/specimen/Manrope</a>.</div>
-
-    <div class="cite">Wikipedia. "Six Degrees of Separation." Accessed March 2026. <a href="https://en.wikipedia.org/wiki/Six_degrees_of_separation" target="_blank">https://en.wikipedia.org/wiki/Six_degrees_of_separation</a>.</div>
+    <div class="cite">
+      <div class="cite-text">An visual reference for relationship network graphs — influenced the overall approach of the print based side of the project.</div>
+      <span class="cite-note">Andrews, Max. <em>Epstein Visualizer.</em> Accessed March 2026. <a href="https://epsteinvisualizer.com/" class="cite-link" target="_blank">https://epsteinvisualizer.com</a>.</span>
+    </div>
 
   </div>
 
+  <!-- Print Assets -->
+  <div class="section">Print assets</div>
+  <div class="cite-list">
+
+    <div class="cite">
+      <div class="cite-text">Background image used in the print version of the graph.</div>
+      <span class="cite-note">Adobe Stock. <em>Space background — dark infinite universe with stars and constellations.</em> Accessed 2026. <a href="https://stock.adobe.com/ca/images/space-background-dark-infinite-universe-with-shining-stars-and-constellations-starry-cosmos-realistic-stardust-wallpaper-black-night-sky-and-milky-way-vector-illustration/338630700" class="cite-link" target="_blank">stock.adobe.com</a>.</span>
+    </div>
+
+    <div class="cite">
+      <div class="cite-text">Background image used in the print version of the graph.</div>
+      <span class="cite-note">Adobe Stock. <em>Starry sky background with bright stars in dark night sky.</em> Accessed 2026. <a href="https://stock.adobe.com/ca/images/starry-sky-background-with-bright-stars-in-dark-night-sky/454642983" class="cite-link" target="_blank">stock.adobe.com</a>.</span>
+    </div>
+
+    <div class="cite">
+      <div class="cite-text">Compass icon used in the print layout.</div>
+      <span class="cite-note">Adobe Stock. <em>Compass icons — set of vector compass icons.</em> Accessed 2026. <a href="https://stock.adobe.com/ca/images/compass-icons-set-of-vector-compass-icons/343407067" class="cite-link" target="_blank">stock.adobe.com</a>.</span>
+    </div>
+
+  </div>
+
+  <!-- Code Citations -->
+  <div class="section">Code citations</div>
+  <div class="cite-list">
+
+    <div class="code-cite">
+      <span class="code-tag">d3.forceSimulation</span>
+      <div class="code-body">This is the core of D3 that runs all the 'physics', it's essentially an engine that continuously calculates where every one of the 309 nodes should be based on the forces applied to them.</div>
+      <div class="code-citation">Observable. <em>d3-force simulation.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.forceLink</span>
+      <div class="code-body">This creates a sort of spring force along each edge, so connected nodes get pulled toward each other. I could control how strong and how far, which is what the Link Force and Link Distance sliders adjust.</div>
+      <div class="code-citation">Observable. <em>d3-force link.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/link" class="cite-link" target="_blank">https://d3js.org/d3-force/link</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.forceManyBody</span>
+      <div class="code-body">This is basically the opposite of forceLink, every node pushes every other node away from it. Without this all 309 nodes would just collapse into the centre. The Repel Force slider controls how strong this is.</div>
+      <div class="code-citation">Observable. <em>d3-force many-body.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/many-body" class="cite-link" target="_blank">https://d3js.org/d3-force/many-body</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.forceX / d3.forceY</span>
+      <div class="code-body">These two forces work together to pull all nodes toward the centre of the screen so the graph doesn't drift off to the side. They're what the Centre Force slider adjusts.</div>
+      <div class="code-citation">Observable. <em>d3-force position.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/position" class="cite-link" target="_blank">https://d3js.org/d3-force/position</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.forceCollide</span>
+      <div class="code-body">This one prevents nodes from sitting directly on top of each other. It treats every node as a circle with a certain radius and makes sure no two overlap, which matters a lot with 309 people in one graph.</div>
+      <div class="code-citation">Observable. <em>d3-force collide.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/collide" class="cite-link" target="_blank">https://d3js.org/d3-force/collide</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">simulation.stop() / simulation.tick()</span>
+      <div class="code-body">I found that without this, the graph would start from zero every time the Start button was clicked and all the nodes would fly around chaotically. So I stop the sim, manually run 500 steps behind the scenes while the intro screen covers it, then reveal it already settled.</div>
+      <div class="code-citation">Observable. <em>d3-force simulation.tick.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation#simulation_tick" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation#simulation_tick</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">simulation.alpha()</span>
+      <div class="code-body">Alpha is basically how much energy the simulation has. When it's high nodes move fast and chaotically, when it's near zero everything has settled. I restart at 0.15 after the pre-ticks so things gently drift to their final positions.</div>
+      <div class="code-citation">Observable. <em>d3-force simulation.alpha.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation#simulation_alpha" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation#simulation_alpha</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.scaleSqrt</span>
+      <div class="code-body">I didn't want the most connected nodes to be gigantic, but I did want them to clearly look bigger. The square root scale does this — it maps connection count to radius in a way that feels proportional without Jimmy Fallon's node being the size of the screen.</div>
+      <div class="code-citation">Observable. <em>d3-scale scaleSqrt.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-scale#scaleSqrt" class="cite-link" target="_blank">https://d3js.org/d3-scale#scaleSqrt</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.zoom</span>
+      <div class="code-body">This is what lets you zoom in and drag the graph around. The transform gets applied to a wrapper group so everything moves together — nodes, edges, and labels all shift as one.</div>
+      <div class="code-citation">Observable. <em>d3-zoom.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-zoom" class="cite-link" target="_blank">https://d3js.org/d3-zoom</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.drag</span>
+      <div class="code-body">This lets you grab and move nodes around the canvas. While you're dragging, the node gets temporarily pinned so it stays where your mouse is. When you release, it goes back to being pulled around by physics.</div>
+      <div class="code-citation">Observable. <em>d3-drag.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-drag" class="cite-link" target="_blank">https://d3js.org/d3-drag</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">selection.join()</span>
+      <div class="code-body">This is how D3 connects your data to the actual elements drawn on screen. For every edge in my data array there's one SVG line, for every node there's one SVG group. It handles creating, updating, and removing them automatically.</div>
+      <div class="code-citation">Observable. <em>d3-selection joining.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-selection/joining" class="cite-link" target="_blank">https://d3js.org/d3-selection/joining</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d3.zoomIdentity</span>
+      <div class="code-body">When the graph first appears it needs to be at a zoom level where you can see everything. This creates the starting transform so it opens centered and fits within the window.</div>
+      <div class="code-citation">Observable. <em>d3-zoom zoomIdentity.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-zoom#zoomIdentity" class="cite-link" target="_blank">https://d3js.org/d3-zoom#zoomIdentity</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">new Map()</span>
+      <div class="code-body">I use JavaScript Maps a lot in this project. The main places are: making sure the Epstein group overrides work by deduplicating nodes with the last entry winning, building the connection lookup for the hover tooltip, and counting how many edges each person has to size their node.</div>
+      <div class="code-citation">MDN Web Docs. "Map." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">BFS (breadth-first search)</span>
+      <div class="code-body">BFS is how I calculated the degrees of separation for every person on the graph. It starts from my node and fans outward, recording how many steps it takes to reach each person. That's what shows up in the hover tooltip.</div>
+      <div class="code-citation">Wikipedia. "Breadth-first search." Accessed March 2026. <a href="https://en.wikipedia.org/wiki/Breadth-first_search" class="cite-link" target="_blank">https://en.wikipedia.org/wiki/Breadth-first_search</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">clip-path animation</span>
+      <div class="code-body">This is the circular shrinking animation when you click Start. I found this transition on transition.style and adapted it. The trick is that the graph is already rendered underneath during the animation, so when it finishes there's no loading delay.</div>
+      <div class="code-citation">MDN Web Docs. "clip-path." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">CSS Grid</span>
+      <div class="code-body">The Key panel on the graph uses a two-column grid layout. I used CSS Grid for this instead of manually positioning things.</div>
+      <div class="code-citation">MDN Web Docs. "CSS Grid Layout." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">element.classList</span>
+      <div class="code-body">classList is basically how I control the state of elements by adding or removing CSS classes. I use it all over the site — the collapsible panels, the Show Relationships button changing state, and toggling edge labels on and off.</div>
+      <div class="code-citation">MDN Web Docs. "Element.classList." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/classList" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/Element/classList</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">XMLSerializer</span>
+      <div class="code-body">The print versions have a Save SVG button. XMLSerializer is how I convert the live SVG element on the page into a downloadable string so you can export it.</div>
+      <div class="code-citation">MDN Web Docs. "XMLSerializer." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/XMLSerializer" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/XMLSerializer</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">position: fixed</span>
+      <div class="code-body">All the UI overlays on the graph use position fixed so they stay on screen while you're panning and zooming the graph behind them. Without this, the panels would scroll away with the graph.</div>
+      <div class="code-citation">MDN Web Docs. "position." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/position" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/position</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">CSS @font-face</span>
+      <div class="code-body">Both fonts load via @font-face. Lombard is only available as a local file, and I also added a local fallback for Manrope in case the Google Fonts CDN is down or unavailable.</div>
+      <div class="code-citation">MDN Web Docs. "@font-face." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">CSS clamp()</span>
+      <div class="code-body">clamp() lets me set a font size that scales with the viewport but never goes below or above certain limits. The intro title uses this so it looks right on both a phone and a large monitor without me having to write separate media queries.</div>
+      <div class="code-citation">MDN Web Docs. "clamp()." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/clamp" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/clamp</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">Audio.play()</span>
+      <div class="code-body">There's a short sound that plays when you click Start. The .catch() at the end is because some browsers block audio autoplay and would throw an error — this just silently ignores it if that happens.</div>
+      <div class="code-citation">MDN Web Docs. "HTMLAudioElement." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLAudioElement" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/HTMLAudioElement</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">setTimeout</span>
+      <div class="code-body">After the animation plays, the intro screen is technically still there even though you can't see it. I use setTimeout to remove it entirely after 3.1 seconds so it doesn't accidentally block clicks and hovers on the graph.</div>
+      <div class="code-citation">MDN Web Docs. "setTimeout." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/setTimeout" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/setTimeout</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">input[type="range"]</span>
+      <div class="code-body">The Forces panel has four sliders, one for each major physics parameter. Each one listens for the input event which fires on every movement, not just on release, so the graph responds in real time as you drag.</div>
+      <div class="code-citation">MDN Web Docs. "input type range." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/range" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/range</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">d.fx / d.fy</span>
+      <div class="code-body">In D3's force simulation, you can pin a node in place by setting fx and fy. My node is always pinned to the exact centre of the screen so all the other nodes orbit around me, which is kind of the point.</div>
+      <div class="code-citation">Observable. <em>d3-force simulation nodes.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation#simulation_nodes" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation#simulation_nodes</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">mouseover / mouseout</span>
+      <div class="code-body">mouseover and mouseout are what trigger the hover interaction. When you hover a node, everything not connected to it dims, connected edges highlight, and the tooltip appears. When you leave, it all resets.</div>
+      <div class="code-citation">MDN Web Docs. "mouseover event." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/mouseover_event" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/Element/mouseover_event</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">@media (max-width: 600px)</span>
+      <div class="code-body">This media query only applies on screens narrower than 600px. It shrinks the UI panels and adjusts the initial zoom so the graph fills the phone screen instead of appearing as a tiny dot in the middle.</div>
+      <div class="code-citation">MDN Web Docs. "CSS media queries." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_media_queries" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_media_queries</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">will-change: clip-path</span>
+      <div class="code-body">This hints to the browser that the clip-path property is about to animate, so it can move that work to the GPU in advance. Without it the intro animation could stutter on slower devices.</div>
+      <div class="code-citation">MDN Web Docs. "will-change." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/will-change" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/will-change</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">text-anchor: middle</span>
+      <div class="code-body">Every name label in the graph uses text-anchor: middle so it centres over its node. Without this, shorter names would look off-centre compared to longer ones.</div>
+      <div class="code-citation">MDN Web Docs. "text-anchor." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/text-anchor" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/text-anchor</a>.</div>
+    </div>
+
+    <div class="code-cite">
+      <span class="code-tag">stroke-opacity</span>
+      <div class="code-body">When you hover a node, its connected edges go to full opacity and the rest drop to nearly invisible. stroke-opacity is how I control this per-edge in SVG.</div>
+      <div class="code-citation">MDN Web Docs. "stroke-opacity." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-opacity" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-opacity</a>.</div>
+    </div>
+
+  </div>
+
+  <div class="footer">© 2026 Ayaan Ahmed Studios</div>
+
 </div>
+
+<script>
+
+</script>
+
 </body>
 </html>
