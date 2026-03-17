@@ -556,81 +556,57 @@
     </div>
 
     <div class="code-cite">
-      <span class="code-tag">simulation.stop() / simulation.tick()</span>
-      <div class="code-body">I found that without this, the graph would start from zero every time the Start button was clicked and all the nodes would fly around chaotically. So I stop the sim, manually run 500 steps behind the scenes while the intro screen covers it, then reveal it already settled.</div>
-      <div class="code-citation">Observable. <em>d3-force simulation.tick.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation#simulation_tick" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation#simulation_tick</a>.</div>
-    </div>
-
-    <div class="code-cite">
-      <span class="code-tag">simulation.alpha()</span>
-      <div class="code-body">Alpha is basically how much energy the simulation has. When it's high nodes move fast and chaotically, when it's near zero everything has settled. I restart at 0.15 after the pre-ticks so things gently drift to their final positions.</div>
-      <div class="code-citation">Observable. <em>d3-force simulation.alpha.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation#simulation_alpha" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation#simulation_alpha</a>.</div>
-    </div>
-
-    <div class="code-cite">
       <span class="code-tag">d3.scaleSqrt</span>
-      <div class="code-body">I didn't want the most connected nodes to be gigantic, but I did want them to clearly look bigger. The square root scale does this — it maps connection count to radius in a way that feels proportional without Jimmy Fallon's node being the size of the screen.</div>
+      <div class="code-body">I didn't want the noded with the most connections like Jimmy Fallon to be gigantic like in Obsidian, but I did want them to clearly look bigger. This does that in a way that feels proportional without Jimmy Fallon's node being the size of the screen.</div>
       <div class="code-citation">Observable. <em>d3-scale scaleSqrt.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-scale#scaleSqrt" class="cite-link" target="_blank">https://d3js.org/d3-scale#scaleSqrt</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">d3.zoom</span>
-      <div class="code-body">This is what lets you zoom in and drag the graph around. The transform gets applied to a wrapper group so everything moves together — nodes, edges, and labels all shift as one.</div>
+      <div class="code-body">This is what lets you zoom in and drag the graph around. The transform gets applied to a wrapper group so everything moves together, nodes, edges, and labels all shift as one.</div>
       <div class="code-citation">Observable. <em>d3-zoom.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-zoom" class="cite-link" target="_blank">https://d3js.org/d3-zoom</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">d3.drag</span>
       <div class="code-body">This lets you grab and move nodes around the canvas. While you're dragging, the node gets temporarily pinned so it stays where your mouse is. When you release, it goes back to being pulled around by physics.</div>
-      <div class="code-citation">Observable. <em>d3-drag.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-drag" class="cite-link" target="_blank">https://d3js.org/d3-drag</a>.</div>
+      <div class="code-citation">Observable. <em>d3-drag.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-drag" class="cite-link" target="_blank">https://d3js.org/d3-drag</a>.</div> 
     </div>
 
     <div class="code-cite">
       <span class="code-tag">selection.join()</span>
-      <div class="code-body">This is how D3 connects your data to the actual elements drawn on screen. For every edge in my data array there's one SVG line, for every node there's one SVG group. It handles creating, updating, and removing them automatically.</div>
+      <div class="code-body">This is how D3 connects your data to the actual elements drawn on screen. For every connector line in my data array there's one SVG line, for every node there's one SVG group. It handles creating, updating, and removing them automatically.</div>
       <div class="code-citation">Observable. <em>d3-selection joining.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-selection/joining" class="cite-link" target="_blank">https://d3js.org/d3-selection/joining</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">d3.zoomIdentity</span>
-      <div class="code-body">When the graph first appears it needs to be at a zoom level where you can see everything. This creates the starting transform so it opens centered and fits within the window.</div>
+      <div class="code-body">When the graph first appears it needs to be at a zoom level where it looks the best, I manually tested this and chose one that had my name readable but also showed a high amount of nodes around it.</div>
       <div class="code-citation">Observable. <em>d3-zoom zoomIdentity.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-zoom#zoomIdentity" class="cite-link" target="_blank">https://d3js.org/d3-zoom#zoomIdentity</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">new Map()</span>
-      <div class="code-body">I use JavaScript Maps a lot in this project. The main places are: making sure the Epstein group overrides work by deduplicating nodes with the last entry winning, building the connection lookup for the hover tooltip, and counting how many edges each person has to size their node.</div>
+      <div class="code-body">I use JavaScript Maps a lot in this project. The main places are: making sure the Epstein group overrides work by deduplicating nodes with the last entry winning, building the connection lookup for the hover tooltip, and counting how many connector lines each person has to change the size of their nodes.</div>
       <div class="code-citation">MDN Web Docs. "Map." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map</a>.</div>
     </div>
 
     <div class="code-cite">
-      <span class="code-tag">BFS (breadth-first search)</span>
-      <div class="code-body">BFS is how I calculated the degrees of separation for every person on the graph. It starts from my node and fans outward, recording how many steps it takes to reach each person. That's what shows up in the hover tooltip.</div>
-      <div class="code-citation">Wikipedia. "Breadth-first search." Accessed March 2026. <a href="https://en.wikipedia.org/wiki/Breadth-first_search" class="cite-link" target="_blank">https://en.wikipedia.org/wiki/Breadth-first_search</a>.</div>
-    </div>
-
-    <div class="code-cite">
       <span class="code-tag">clip-path animation</span>
-      <div class="code-body">This is the circular shrinking animation when you click Start. I found this transition on transition.style and adapted it. The trick is that the graph is already rendered underneath during the animation, so when it finishes there's no loading delay.</div>
+      <div class="code-body">This is the circular shrinking animation when you click Start. I found this transition on transition.style much like the square intro animation on Finite Grids, but instead I used a circle transition here to reflect the circularness of my graph and how I wanted to distance myself with the squareness of Finite Grids.</div>
       <div class="code-citation">MDN Web Docs. "clip-path." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">CSS Grid</span>
-      <div class="code-body">The Key panel on the graph uses a two-column grid layout. I used CSS Grid for this instead of manually positioning things.</div>
+      <div class="code-body">The Key panel on the graph uses a two-column grid layout. I used CSS Grid for this instead of manually positioning things, just because I'm more used to dealing with a table grid than manually.</div>
       <div class="code-citation">MDN Web Docs. "CSS Grid Layout." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">element.classList</span>
-      <div class="code-body">classList is basically how I control the state of elements by adding or removing CSS classes. I use it all over the site — the collapsible panels, the Show Relationships button changing state, and toggling edge labels on and off.</div>
+      <div class="code-body">classList is basically how I control the state of elements by adding or removing CSS classes. I use it all over the site, in the collapsible panels, the Show Relationships button, and toggling connector line labels on and off.</div>
       <div class="code-citation">MDN Web Docs. "Element.classList." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/classList" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/Element/classList</a>.</div>
-    </div>
-
-    <div class="code-cite">
-      <span class="code-tag">XMLSerializer</span>
-      <div class="code-body">The print versions have a Save SVG button. XMLSerializer is how I convert the live SVG element on the page into a downloadable string so you can export it.</div>
-      <div class="code-citation">MDN Web Docs. "XMLSerializer." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/XMLSerializer" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/XMLSerializer</a>.</div>
     </div>
 
     <div class="code-cite">
@@ -641,19 +617,19 @@
 
     <div class="code-cite">
       <span class="code-tag">CSS @font-face</span>
-      <div class="code-body">Both fonts load via @font-face. Lombard is only available as a local file, and I also added a local fallback for Manrope in case the Google Fonts CDN is down or unavailable.</div>
+      <div class="code-body">Both fonts load via @font-face, and I also added a local fallback for Manrope in case the Google Fonts linke doesn't work or is down or unavailable.</div>
       <div class="code-citation">MDN Web Docs. "@font-face." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">CSS clamp()</span>
-      <div class="code-body">clamp() lets me set a font size that scales with the viewport but never goes below or above certain limits. The intro title uses this so it looks right on both a phone and a large monitor without me having to write separate media queries.</div>
+      <div class="code-body">clamp() lets me set a font size that scales based on the window and screen size but never goes below or above certain limits. The intro title uses this so it looks right on both a phone and a large monitor.</div>
       <div class="code-citation">MDN Web Docs. "clamp()." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/clamp" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/clamp</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">Audio.play()</span>
-      <div class="code-body">There's a short sound that plays when you click Start. The .catch() at the end is because some browsers block audio autoplay and would throw an error — this just silently ignores it if that happens.</div>
+      <div class="code-body">There's a short sound effect from Among Us that plays when you click Start. The .catch() at the end is because some browsers block audio autoplay and would throw an error — this just silently ignores it if that happens.</div>
       <div class="code-citation">MDN Web Docs. "HTMLAudioElement." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLAudioElement" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/HTMLAudioElement</a>.</div>
     </div>
 
@@ -671,37 +647,25 @@
 
     <div class="code-cite">
       <span class="code-tag">d.fx / d.fy</span>
-      <div class="code-body">In D3's force simulation, you can pin a node in place by setting fx and fy. My node is always pinned to the exact centre of the screen so all the other nodes orbit around me, which is kind of the point.</div>
+      <div class="code-body">In D3's force simulation, you can pin a node in place by setting fx and fy. My node is always pinned to the exact centre of the screen so all the other nodes orbit around me, which is kind of the point of the project entirely.</div>
       <div class="code-citation">Observable. <em>d3-force simulation nodes.</em> D3 by Observable, 2023. <a href="https://d3js.org/d3-force/simulation#simulation_nodes" class="cite-link" target="_blank">https://d3js.org/d3-force/simulation#simulation_nodes</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">mouseover / mouseout</span>
-      <div class="code-body">mouseover and mouseout are what trigger the hover interaction. When you hover a node, everything not connected to it dims, connected edges highlight, and the tooltip appears. When you leave, it all resets.</div>
+      <div class="code-body">mouseover and mouseout are what trigger the hover effect. When you hover over a node, everything not connected to it dims, connected nodes and their lines highlight</div>
       <div class="code-citation">MDN Web Docs. "mouseover event." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/mouseover_event" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/Element/mouseover_event</a>.</div>
     </div>
 
     <div class="code-cite">
-      <span class="code-tag">@media (max-width: 600px)</span>
-      <div class="code-body">This media query only applies on screens narrower than 600px. It shrinks the UI panels and adjusts the initial zoom so the graph fills the phone screen instead of appearing as a tiny dot in the middle.</div>
-      <div class="code-citation">MDN Web Docs. "CSS media queries." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_media_queries" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_media_queries</a>.</div>
-    </div>
-
-    <div class="code-cite">
-      <span class="code-tag">will-change: clip-path</span>
-      <div class="code-body">This hints to the browser that the clip-path property is about to animate, so it can move that work to the GPU in advance. Without it the intro animation could stutter on slower devices.</div>
-      <div class="code-citation">MDN Web Docs. "will-change." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/will-change" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/CSS/will-change</a>.</div>
-    </div>
-
-    <div class="code-cite">
       <span class="code-tag">text-anchor: middle</span>
-      <div class="code-body">Every name label in the graph uses text-anchor: middle so it centres over its node. Without this, shorter names would look off-centre compared to longer ones.</div>
+      <div class="code-body">Every name label in the graph uses text-anchor: middle so it centres below its node. Without this, shorter names would look off-centre compared to longer ones.</div>
       <div class="code-citation">MDN Web Docs. "text-anchor." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/text-anchor" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/text-anchor</a>.</div>
     </div>
 
     <div class="code-cite">
       <span class="code-tag">stroke-opacity</span>
-      <div class="code-body">When you hover a node, its connected edges go to full opacity and the rest drop to nearly invisible. stroke-opacity is how I control this per-edge in SVG.</div>
+      <div class="code-body">When you hover a node, its connected edges go to full opacity and the rest drop to nearly invisible to focus on that.</div>
       <div class="code-citation">MDN Web Docs. "stroke-opacity." Mozilla, 2024. <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-opacity" class="cite-link" target="_blank">https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-opacity</a>.</div>
     </div>
 
